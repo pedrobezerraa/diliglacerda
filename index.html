@@ -242,6 +242,17 @@
   .abrir { border: 0; background: transparent; color: var(--faint); padding: 0; font-size: .72rem;
            font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
   .abrir:hover { color: var(--gold); }
+  .btn-dilig { border: 1px solid var(--gold-2); background: transparent; color: var(--gold); border-radius: 999px;
+               padding: 1px 8px; font-size: .72rem; font-weight: 600; line-height: 1.5; cursor: pointer; }
+  .btn-dilig:hover { background: var(--gold); border-color: var(--gold); color: var(--surface); }
+  .btn-dilig.feita { border-color: var(--green); color: var(--green); background: var(--green-soft); }
+  .btn-dilig.feita:hover { background: var(--green); color: var(--surface); }
+  .btn-dilig:disabled { opacity: .45; cursor: default; }
+  .dilig-rapida { display: grid; gap: 5px; margin-top: 7px; }
+  .dilig-rapida input, .dilig-rapida select { font: inherit; font-size: .76rem; width: 100%; padding: 3px 6px;
+               border: 1px solid var(--line-2); border-radius: var(--r-s); background: var(--surface); color: var(--ink); }
+  .dilig-rapida .acoes { display: flex; gap: 5px; }
+  .dilig-rapida .acoes button { font-size: .74rem; padding: 3px 9px; white-space: nowrap; }
 
   /* movimento dentro da célula de data */
   .mov { padding: 7px 10px; border-bottom: 1px dashed var(--line); }
@@ -1052,7 +1063,8 @@ function desenhar() {
              ? `<span class="etiqueta ${esc(p.categoria)}">${esc(p.categoria)}</span>` : ""}</div>` : "")
         + `<div class="sublinha">${marca}`
         + (p.transferencia_aberta ? `<span class="selo spassagem">passagem pendente</span>` : "")
-        + `<button class="abrir" data-npu="${esc(n)}">histórico</button></div></div></td>`
+        + `<button class="abrir" data-npu="${esc(n)}">histórico</button>`
+        + botaoDiligencia(n, p) + `</div></div></td>`
         + `<td class="fix c2"><div class="cel">${celulaEditavel(n, p, "fase")}</div></td>`
         + `<td class="fix c3"><div class="cel cel-juizo" title="${esc(tituloJuizo(p))}">`
         + `${esc(p.juizo || "—")}`
@@ -1103,7 +1115,9 @@ function desenhar() {
     ["Novos na última consulta", novosAgora, novosAgora ? "destaque" : ""],
     ["Objetivos atingidos", todos.filter(n => (BD.processos[n] || {}).atingido).length, ""],
     ["Sem resposta do PJe", falhas, ""],
-  ].map(([r, v, c]) => `<div class="${c}"><b>${v}</b><span>${esc(r)}</span></div>`).join("");
+  ].map(([r, v, c]) => `<div class="${c}"><b>${v}</b><span>${esc(r)}</span></div>`).join("")
+    + `<div class="${feitasHoje >= metaDiaria() ? "" : "destaque"}"><b id="placar-dilig">${feitasHoje} de ${metaDiaria()}</b>`
+    + `<span>Suas diligências hoje</span></div>`;
 
   $("#refazer").hidden = !falhas || verificando;
   if (!verificando) {
@@ -1214,13 +1228,105 @@ function pintarHoje() {
   if (el) el.textContent = `Hoje: ${feitasHoje} de ${metaDiaria()}`;
 }
 
+// quantas diligências você registrou hoje em cada processo (id do processo -> quantidade)
+const diligHoje = new Map();
+
 async function contarHoje() {
   if (!DG.meuId()) return;
+  const d = new Date();
+  const inicio = new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString();
   try {
-    const l = await DG.ler(`/v_metas?select=providencias&membro_id=eq.${DG.meuId()}&dia=eq.${hojeLocal()}`);
-    feitasHoje = (l && l[0] && l[0].providencias) || 0;
+    const l = await DG.ler(`/providencias?select=processo_id&por=eq.${DG.meuId()}`
+                         + `&em=gte.${encodeURIComponent(inicio)}&limit=2000`) || [];
+    diligHoje.clear();
+    for (const r of l) diligHoje.set(r.processo_id, (diligHoje.get(r.processo_id) || 0) + 1);
+    feitasHoje = l.length;
   } catch { /* sem conexão: fica o que já foi contado aqui */ }
   pintarHoje();
+  atualizarBotoesDiligencia();
+}
+
+// O botão fica na própria linha da carteira: dá para registrar sem abrir o processo.
+function botaoDiligencia(npu, p) {
+  const k = (p.id && diligHoje.get(p.id)) || 0;
+  const pode = DG.escreve() && !!p.id;
+  return `<button class="btn-dilig${k ? " feita" : ""}" data-dilig="${esc(npu)}"${pode ? "" : " disabled"}
+    title="${k ? `Você já registrou ${k} diligência(s) hoje neste processo. Clique para registrar outra.`
+               : "Registrar a diligência feita neste processo"}">${k ? `✓ diligência${k > 1 ? ` ×${k}` : ""}` : "+ diligência"}</button>`;
+}
+
+function atualizarBotoesDiligencia() {
+  for (const b of $$("button[data-dilig]")) {
+    const p = BD.processos[b.dataset.dilig];
+    if (!p) continue;
+    const molde = document.createElement("div");
+    molde.innerHTML = botaoDiligencia(b.dataset.dilig, p);
+    b.replaceWith(molde.firstElementChild);
+  }
+  // o placar do dia na faixa de números da aba
+  const placar = $("#placar-dilig");
+  if (placar) placar.textContent = `${feitasHoje} de ${metaDiaria()}`;
+}
+
+// abre, na própria célula, um campo curto: Enter registra, Esc fecha
+function abrirDiligenciaRapida(botao) {
+  const npu = botao.dataset.dilig, p = BD.processos[npu];
+  if (!p || !p.id) return;
+  const cel = botao.closest(".cel");
+  const aberto = cel.querySelector(".dilig-rapida");
+  if (aberto) { aberto.querySelector("input").focus(); return; }
+  const caixa = document.createElement("div");
+  caixa.className = "dilig-rapida";
+  caixa.innerHTML = `<input type="text" maxlength="500" aria-label="O que foi feito neste processo"
+      placeholder="O que foi feito? Enter registra">
+    <div class="acoes">
+      <select aria-label="Condição da diligência">
+        <option value="">condição…</option>
+        ${Object.entries(ROTULO_CONDICAO).map(([v, r]) =>
+          `<option value="${v}"${p.condicao === v ? " selected" : ""}>${r}</option>`).join("")}
+      </select>
+      <button class="primario">Registrar</button>
+      <button class="secundario" aria-label="Fechar">×</button>
+    </div>`;
+  cel.appendChild(caixa);
+  const campo = caixa.querySelector("input");
+  const [registrar, fechar] = caixa.querySelectorAll("button");
+  const enviar = () => {
+    if (gravarDiligencia(npu, campo.value, caixa.querySelector("select").value)) caixa.remove();
+    else campo.focus();
+  };
+  registrar.addEventListener("click", enviar);
+  fechar.addEventListener("click", () => caixa.remove());
+  caixa.addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); enviar(); }
+    else if (e.key === "Escape") { e.preventDefault(); caixa.remove(); }
+  });
+  campo.focus();
+}
+
+// O registro em si, usado pela linha da carteira e pela gaveta.
+function gravarDiligencia(npu, textoBruto, condicaoBruta, marco) {
+  const p = BD.processos[npu];
+  if (!p || !p.id) return false;
+  const texto = String(textoBruto || "").replace(/\s+/g, " ").trim();
+  if (!texto) {
+    avisar("Escreva em poucas palavras o que foi feito antes de registrar.", true);
+    return false;
+  }
+  const condicao = condicaoBruta || null;
+  const linha = { processo_id: p.id, por: DG.meuId(), texto, condicao, proximo_marco: marco || null };
+  DG.enfileirar({ metodo: "POST", caminho: "/rest/v1/providencias", corpo: linha });
+  // conferiu os autos: o ritmo de revisão recomeça daqui
+  p.revisado_em = carimbarAgora();
+  if (condicao) p.condicao = condicao;
+  gravar();
+  diligHoje.set(p.id, (diligHoje.get(p.id) || 0) + 1);
+  feitasHoje++;
+  if (gavetaNpu === npu) { provsGaveta.unshift({ ...linha, em: new Date().toISOString() }); pintarProvidencias(); }
+  pintarHoje();
+  atualizarBotoesDiligencia();
+  avisar(`Diligência registrada em ${mascara(npu)}. Hoje: ${feitasHoje} de ${metaDiaria()}.`);
+  return true;
 }
 
 async function carregarProvidencias(p) {
@@ -1249,32 +1355,19 @@ function pintarProvidencias() {
 }
 
 function registrarDiligencia() {
-  const p = BD.processos[gavetaNpu];
-  if (!p || !p.id) return;
-  const texto = $("#g-feito").value.replace(/\s+/g, " ").trim();
-  if (!texto) {
-    avisar("Escreva em poucas palavras o que foi feito antes de registrar.", true);
+  if (gravarDiligencia(gavetaNpu, $("#g-feito").value, $("#g-condicao").value, $("#g-marco").value)) {
+    $("#g-feito").value = ""; $("#g-marco").value = "";
+  } else {
     $("#g-feito").focus();
-    return;
   }
-  const condicao = $("#g-condicao").value || null;
-  const linha = { processo_id: p.id, por: DG.meuId(), texto, condicao,
-                  proximo_marco: $("#g-marco").value || null };
-  DG.enfileirar({ metodo: "POST", caminho: "/rest/v1/providencias", corpo: linha });
-  // conferiu os autos: o ritmo de revisão recomeça daqui
-  p.revisado_em = carimbarAgora();
-  if (condicao) p.condicao = condicao;
-  gravar();
-  provsGaveta.unshift({ ...linha, em: new Date().toISOString() });
-  feitasHoje++;
-  pintarProvidencias(); pintarHoje();
-  $("#g-feito").value = ""; $("#g-marco").value = "";
-  avisar(`Diligência registrada em ${mascara(p.npu)}. Hoje: ${feitasHoje} de ${metaDiaria()}.`);
 }
 $("#g-registrar").addEventListener("click", registrarDiligencia);
 $("#g-feito").addEventListener("keydown", e => { if (e.key === "Enter") registrarDiligencia(); });
 function fecharGaveta() { $("#gaveta").hidden = true; $("#fundo").hidden = true; gavetaNpu = ""; }
 $("#grade-corpo").addEventListener("click", e => {
+  const d = e.target.closest("button[data-dilig]");
+  if (d) { abrirDiligenciaRapida(d); return; }
+  if (e.target.closest(".dilig-rapida")) return;
   const b = e.target.closest("button[data-npu]");
   if (b) { abrirGaveta(b.dataset.npu); return; }
   const cel = e.target.closest(".cel-edit");

@@ -1,0 +1,2689 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DiliGLA · acompanhamento de diligências</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- SheetJS vai junto com a aplicação, e não de um CDN: já aconteceu de o CDN
+     falhar para uma pessoa do setor e derrubar o relatório inteiro. -->
+<script src="vendor/xlsx.min.js"></script>
+<style>
+  :root {
+    --canvas: #faf6f0; --surface: #fff; --raised: #fffdfa; --sunken: #f3ece2;
+    --ink: #16171d; --ink-2: #4a4a58; --muted: #75748a; --faint: #a09eb0;
+    --line: #e7ded1; --line-2: #d6c9b6; --line-3: #bfae95;
+    --gold: #8a6a2f; --gold-2: #b08636; --gold-soft: #f5ead6; --marca: #ad7c3a;
+    --green: #1c6b45; --green-soft: #e3f2e9; --amber: #9a6a08; --amber-soft: #fbeed2;
+    --red: #a72f2f; --red-soft: #fbe6e4;
+    --azul: #245f8f; --azul-soft: #eaf4fc; --roxo: #6b4fa8; --roxo-soft: #f3eefb;
+    --shadow-s: 0 1px 2px rgba(20,16,10,.06), 0 1px 1px rgba(20,16,10,.04);
+    --shadow-m: 0 10px 26px -14px rgba(20,16,10,.35);
+    --shadow-l: 0 24px 60px -24px rgba(20,16,10,.45);
+    --r-s: 8px; --r-m: 12px; --r-l: 18px;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --col-npu: 200px; --col-fase: 136px; --col-juizo: 186px; --col-objetivo: 212px;
+    --col-obs: 188px; --col-prior: 98px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--canvas); color: var(--ink); font: 15px/1.5 var(--sans); }
+  button { font: inherit; cursor: pointer; border-radius: var(--r-s); }
+  button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--gold-2); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+
+  /* ---- grupo, carteira e etiqueta de origem na grade ---- */
+  .grupo-rotulo { font-size: 11.5px; font-weight: 600; color: var(--gold); margin-top: 1px;
+                  display: flex; align-items: center; gap: 5px; }
+  .etiqueta { font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em;
+              padding: 1px 5px; border-radius: 99px; font-weight: 700; }
+  .etiqueta.tutelada { background: var(--azul-soft); color: var(--azul); }
+  .etiqueta.realocada { background: var(--roxo-soft); color: var(--roxo); }
+  .carteira-rotulo { display: block; font-size: 10.5px; color: var(--muted); margin-top: 3px;
+                     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .carteira-rotulo.bloco { font-weight: 700; color: var(--azul); }
+  .selo.spassagem { background: var(--amber-soft); color: var(--amber); }
+
+  /* ---- entrada ---- */
+  .porta { position: fixed; inset: 0; z-index: 90; background: var(--canvas);
+           display: grid; place-items: center; padding: 24px; }
+  .porta-cartao { width: 100%; max-width: 408px; background: var(--surface);
+                  border: 1px solid var(--line); border-radius: var(--r-l);
+                  box-shadow: var(--shadow-l); padding: 30px 28px 26px; }
+  .porta-marca { display: flex; align-items: center; gap: 11px; margin-bottom: 20px; }
+  .porta h2 { margin: 0 0 4px; font-size: 19px; }
+  .porta p.nota { margin: 0 0 18px; }
+  .porta label { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink-2);
+                 margin: 0 0 5px; }
+  .porta input { width: 100%; padding: 9px 11px; border: 1px solid var(--line-2);
+                 border-radius: var(--r-s); font: inherit; background: var(--raised); }
+  .porta .campo { margin-bottom: 13px; }
+  .porta .linha-acoes { display: flex; gap: 9px; align-items: center; margin-top: 18px; }
+  .porta .erro { background: var(--red-soft); color: var(--red); border-radius: var(--r-s);
+                 padding: 9px 11px; font-size: 13.5px; margin-bottom: 13px; }
+  .porta .trocar { background: none; border: 0; color: var(--gold); font-size: 13px;
+                   padding: 0; text-decoration: underline; }
+
+  /* ---- quem está logado e estado da gravação ---- */
+  .eu { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--muted); }
+  .eu b { color: var(--ink); font-weight: 600; }
+  .cracha { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+            padding: 2px 7px; border-radius: 99px; background: var(--gold-soft); color: var(--gold); }
+  .cracha.leitura { background: var(--sunken); color: var(--muted); }
+  .sinal { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; }
+  .sinal.pendente { color: var(--amber); }
+  .sinal i { width: 7px; height: 7px; border-radius: 99px; background: var(--green); display: inline-block; }
+  .sinal.pendente i { background: var(--amber); }
+
+  /* ---- navegação entre telas ---- */
+  .navegacao { max-width: 1560px; margin: 0 auto; padding: 0 22px; display: flex; gap: 2px; }
+  .navegacao button { background: none; border: 0; border-bottom: 2px solid transparent;
+                      padding: 9px 13px; color: var(--muted); font-weight: 600; font-size: 14px;
+                      border-radius: 0; }
+  .navegacao button[aria-current="true"] { color: var(--ink); border-bottom-color: var(--marca); }
+  .navegacao .conta { margin-left: 6px; background: var(--red); color: #fff; border-radius: 99px;
+                      font-size: 11px; padding: 1px 6px; font-weight: 700; }
+
+  /* ---- passagens, equipe e painel ---- */
+  .cartoes { display: grid; gap: 12px; }
+  .cartao { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-m);
+            padding: 15px 17px; box-shadow: var(--shadow-s); }
+  .cartao h3 { margin: 0 0 3px; font-size: 15px; }
+  .cartao .de-para { display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+                     margin: 9px 0; font-size: 13.5px; }
+  .cartao .seta { color: var(--gold); font-weight: 700; }
+  .caixa-de { background: var(--sunken); border-radius: var(--r-s); padding: 5px 10px; }
+  .tabela-simples { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .tabela-simples th, .tabela-simples td { padding: 8px 10px; text-align: left;
+                                           border-bottom: 1px solid var(--line); }
+  .tabela-simples th { background: var(--sunken); font-size: 12px; text-transform: uppercase;
+                       letter-spacing: .04em; color: var(--ink-2); }
+  .tabela-simples td.num { text-align: center; font-variant-numeric: tabular-nums; }
+  .tabela-simples select { font: inherit; padding: 4px 7px; border: 1px solid var(--line-2);
+                           border-radius: var(--r-s); background: var(--raised); }
+  .vazio-tela { text-align: center; color: var(--muted); padding: 48px 20px; }
+
+  /* ---- topo ---- */
+  header { background: var(--surface); border-bottom: 1px solid var(--line); box-shadow: var(--shadow-s);
+           position: sticky; top: 0; z-index: 40; }
+  .topo { max-width: 1560px; margin: 0 auto; padding: 13px 22px 0; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .marca { display: flex; align-items: center; gap: 11px; }
+  .marca .selo-marca { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+                       background: linear-gradient(145deg, var(--marca), var(--gold)); color: #fff;
+                       font-weight: 700; font-size: .95rem; letter-spacing: -.02em; box-shadow: var(--shadow-s); }
+  .marca h1 { font-size: 1.35rem; margin: 0; font-weight: 600; letter-spacing: -.015em; }
+  .marca h1 b { color: var(--marca); font-weight: 700; }
+  .marca p { margin: 1px 0 0; font-size: .78rem; color: var(--muted); }
+  .topo .direita { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .primario { background: var(--gold); color: #fff; border: 1px solid var(--gold); padding: 9px 18px; font-weight: 600; }
+  .primario:hover { background: var(--gold-2); border-color: var(--gold-2); }
+  .primario:disabled { opacity: .45; cursor: not-allowed; }
+  .primario.contorno { background: var(--surface); color: var(--gold); }
+  .primario.contorno:hover { background: var(--gold-soft); border-color: var(--gold); color: var(--gold); }
+  .secundario { background: var(--surface); color: var(--ink-2); border: 1px solid var(--line-2); padding: 8px 14px; }
+  .secundario:hover { background: var(--sunken); }
+  .secundario:disabled { opacity: .45; cursor: not-allowed; }
+  .icone { border: 1px solid var(--line-2); background: var(--surface); color: var(--muted); width: 32px; height: 32px;
+           padding: 0; display: inline-grid; place-items: center; }
+  .icone:hover { background: var(--sunken); color: var(--ink-2); }
+  .icone[aria-pressed="true"] { background: var(--gold-soft); color: var(--gold); border-color: var(--line-3); }
+
+  /* ---- abas dos estagiários ---- */
+  .abas { max-width: 1560px; margin: 0 auto; padding: 10px 22px 0; display: flex; gap: 2px; align-items: flex-end; overflow-x: auto; }
+  .abas button { border: 1px solid transparent; border-bottom: 0; background: transparent; color: var(--ink-2);
+                 padding: 10px 20px 11px; font-size: .95rem; font-weight: 500; border-radius: var(--r-s) var(--r-s) 0 0;
+                 white-space: nowrap; display: inline-flex; align-items: center; gap: 9px; position: relative; top: 1px; }
+  .abas button:hover { background: var(--sunken); color: var(--ink); }
+  .abas button .conta { font-size: .74rem; font-variant-numeric: tabular-nums; color: var(--faint);
+                        background: var(--sunken); border-radius: 99px; padding: 1px 8px; font-weight: 600; }
+  .abas button[aria-selected="true"] { background: var(--canvas); border-color: var(--line); color: var(--gold);
+                                       font-weight: 700; box-shadow: 0 -2px 0 var(--marca) inset; }
+  .abas button[aria-selected="true"] .conta { background: var(--gold-soft); color: var(--gold); }
+
+  main { max-width: 1560px; margin: 0 auto; padding: 18px 22px 90px; }
+
+  /* ---- barra de ações da aba ---- */
+  .barra { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+  .barra .vazio-flex { margin-left: auto; }
+  input[type=search] { font: inherit; padding: 8px 13px; min-width: 150px; flex: 1 1 170px; max-width: 280px;
+                       border: 1px solid var(--line-2);
+                       border-radius: var(--r-s); background: var(--surface); color: var(--ink); }
+  progress { width: 170px; height: 7px; accent-color: var(--gold-2); }
+  .opcao-2g { display: inline-flex; align-items: center; gap: 7px; font-size: .83rem; color: var(--ink-2);
+               border: 1px solid var(--line-2); background: var(--surface); border-radius: var(--r-s);
+               padding: 7px 12px; cursor: pointer; white-space: nowrap; }
+  .opcao-2g:hover { background: var(--sunken); }
+  .opcao-2g input { accent-color: var(--gold); margin: 0; }
+  .carimbo { font-size: .78rem; color: var(--muted); font-variant-numeric: tabular-nums;
+             flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .aviso { background: var(--amber-soft); border: 1px solid #e8d49a; color: #6b4a06; border-radius: var(--r-s);
+           padding: 10px 14px; font-size: .86rem; margin-bottom: 14px; }
+  .aviso.ruim { background: var(--red-soft); border-color: #eec4c0; color: #7d2525; }
+
+  /* ---- faixa de números ---- */
+  .resumo { display: grid; grid-template-columns: repeat(auto-fit, minmax(146px, 1fr)); gap: 11px; margin-bottom: 16px; }
+  .resumo div { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-m); padding: 12px 15px; box-shadow: var(--shadow-s); }
+  .resumo b { display: block; font-size: 1.55rem; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; }
+  .resumo span { font-size: .76rem; color: var(--muted); }
+  .resumo .destaque b { color: var(--green); }
+
+  /* ---- a grade, tipo planilha ---- */
+  .quadro { background: var(--surface); border: 1px solid var(--line-2); border-radius: var(--r-m);
+            box-shadow: var(--shadow-s); overflow: hidden; }
+  .rolagem { overflow: auto; max-height: calc(100vh - 272px); }
+  table.grade { border-collapse: separate; border-spacing: 0; font-size: .84rem; width: max-content; min-width: 100%; }
+  table.grade th, table.grade td { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+                                   padding: 0; vertical-align: top; background: var(--surface); }
+  table.grade thead th { position: sticky; top: 0; z-index: 20; background: var(--sunken); color: var(--ink-2);
+                         font-weight: 600; font-size: .76rem; letter-spacing: .02em; text-transform: uppercase;
+                         padding: 9px 11px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--line-2);
+                         box-shadow: 0 1px 0 var(--line-2); }
+  table.grade thead th.data { text-transform: none; letter-spacing: 0; font-family: var(--mono); font-size: .78rem;
+                              min-width: 188px; max-width: 188px; }
+  table.grade thead th.data i { display: block; font-style: normal; font-weight: 500; font-size: .68rem;
+                                color: var(--faint); font-family: var(--sans); text-transform: none; }
+  table.grade thead th.data.hoje { background: var(--gold-soft); color: var(--gold); }
+  table.grade thead th.fix, table.grade tbody td.fix { position: sticky; z-index: 10; }
+  table.grade thead th.fix { z-index: 30; }
+  /* ordem congelada à esquerda: NPU · Fase · Juízo · Objetivo · Prioridade */
+  table.grade .c1 { left: 0; width: var(--col-npu); min-width: var(--col-npu); max-width: var(--col-npu); }
+  table.grade .c2 { left: var(--col-npu); width: var(--col-fase);
+                    min-width: var(--col-fase); max-width: var(--col-fase); }
+  table.grade .c3 { left: calc(var(--col-npu) + var(--col-fase)); width: var(--col-juizo);
+                    min-width: var(--col-juizo); max-width: var(--col-juizo); }
+  table.grade .c4 { left: calc(var(--col-npu) + var(--col-fase) + var(--col-juizo)); width: var(--col-objetivo);
+                    min-width: var(--col-objetivo); max-width: var(--col-objetivo); }
+  table.grade .c5 { left: calc(var(--col-npu) + var(--col-fase) + var(--col-juizo) + var(--col-objetivo));
+                    width: var(--col-obs); min-width: var(--col-obs); max-width: var(--col-obs); }
+  table.grade .c6 { left: calc(var(--col-npu) + var(--col-fase) + var(--col-juizo) + var(--col-objetivo) + var(--col-obs));
+                    width: var(--col-prior); min-width: var(--col-prior); max-width: var(--col-prior);
+                    border-right: 1px solid var(--line-3); box-shadow: 3px 0 7px -4px rgba(20,16,10,.22); }
+  table.grade thead th.c6 { border-right: 1px solid var(--line-3); }
+  table.grade tbody td.fix { background: var(--raised); }
+  table.grade tbody tr:nth-child(even) td { background: #fdfaf5; }
+  table.grade tbody tr:nth-child(even) td.fix { background: #faf4ea; }
+  table.grade tbody tr:hover td { background: var(--gold-soft); }
+  table.grade tbody tr:hover td.fix { background: #f1e2c6; }
+  table.grade tbody tr.semmov td.fix .npu { color: var(--muted); }
+  .cel { padding: 8px 11px; }
+  .npu { font-family: var(--mono); font-size: .78rem; font-weight: 500; letter-spacing: -.03em; white-space: nowrap; }
+  .selo { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  /* fase e observação: campos que viram editáveis ao clique, sem sair da planilha */
+  .cel-edit { font-size: .8rem; color: var(--ink-2); line-height: 1.35; overflow-wrap: anywhere;
+              cursor: text; border-radius: 5px; padding: 2px 5px; margin: -2px -5px;
+              border: 1px dashed transparent; min-height: 22px; }
+  .cel-edit:hover { border-color: var(--line-3); background: var(--raised); }
+  .cel-edit.sem { color: var(--faint); font-style: italic; }
+  input.edita-celula { font: inherit; font-size: .8rem; width: 100%; padding: 3px 6px; margin: -3px 0;
+                     border: 1px solid var(--gold-2); border-radius: 5px; background: var(--surface); color: var(--ink); }
+
+  /* o check de objetivo atingido, dentro da própria célula do objetivo */
+  .atingido { display: inline-flex; align-items: center; gap: 6px; margin-top: 7px; cursor: pointer;
+              font-size: .73rem; font-weight: 600; color: var(--faint); user-select: none; letter-spacing: .01em; }
+  .atingido:hover { color: var(--ink-2); }
+  .atingido input { accent-color: var(--green); margin: 0; cursor: pointer; }
+  .atingido.feito { color: var(--green); }
+  .atingido time { font-family: var(--mono); font-size: .7rem; font-weight: 500; }
+  .cel-objetivo .visto { color: var(--green); font-weight: 700; margin-right: 4px; }
+  table.grade tbody tr.feito td.c4 { box-shadow: inset 0 -2px 0 var(--green-soft); }
+  .cel-obs { color: var(--ink-2); }
+  table.grade tbody tr.feito .cel-objetivo { color: var(--green); }
+
+  /* objetivo e juízo aparecem por inteiro: a linha cresce, nada fica cortado */
+  .cel-objetivo { font-weight: 600; font-size: .8rem; line-height: 1.35; overflow-wrap: anywhere; }
+  .cel-juizo { font-size: .79rem; color: var(--ink-2); line-height: 1.35; overflow-wrap: anywhere; }
+  .cel-juizo .segundo-grau, .cel-juizo .relator { display: block; margin-top: 3px; font-size: .73rem; }
+  .cel-juizo .segundo-grau { color: var(--roxo); font-weight: 600; }
+  .cel-juizo .relator { color: var(--muted); font-style: italic; }
+  .sublinha { display: flex; align-items: center; gap: 6px; margin-top: 3px; flex-wrap: wrap; }
+  .abrir { border: 0; background: transparent; color: var(--faint); padding: 0; font-size: .72rem;
+           font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+  .abrir:hover { color: var(--gold); }
+
+  /* movimento dentro da célula de data */
+  .mov { padding: 7px 10px; border-bottom: 1px dashed var(--line); }
+  .mov:last-child { border-bottom: 0; }
+  .mov time { font-family: var(--mono); font-size: .71rem; color: var(--muted); display: inline-block; margin-right: 5px; }
+  .mov p { margin: 1px 0 0; font-size: .78rem; line-height: 1.38; color: var(--ink-2);
+           display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .mov.novo { background: var(--green-soft); box-shadow: 2px 0 0 var(--green) inset; }
+  td.nada { background: repeating-linear-gradient(135deg, transparent, transparent 7px, #f6f0e6 7px, #f6f0e6 8px) !important; }
+  tbody tr:hover td.nada { background: repeating-linear-gradient(135deg, var(--gold-soft), var(--gold-soft) 7px, #ecdcbe 7px, #ecdcbe 8px) !important; }
+
+  .selo { font-size: .67rem; font-weight: 700; padding: 1px 7px; border-radius: 99px; letter-spacing: .02em;
+          white-space: nowrap; display: inline-block; }
+  .selo.ssent { background: var(--amber-soft); color: var(--amber); }
+  .selo.sconc { background: var(--azul-soft); color: var(--azul); }
+  .selo.sacor { background: var(--roxo-soft); color: var(--roxo); }
+  .selo.serro { background: var(--red-soft); color: var(--red); }
+  .selo.sok    { background: var(--green-soft); color: var(--green); }
+  .selo.sneutro { background: var(--sunken); color: var(--muted); }
+  .selo.sgrau { background: var(--sunken); color: var(--ink-2); border: 1px solid var(--line-2); font-weight: 600; }
+
+  /* prioridade: a tarja colorida na beirada da linha e a pastilha na coluna */
+  .pri { font-size: .72rem; font-weight: 700; padding: 3px 11px; border-radius: 99px; letter-spacing: .01em;
+         display: inline-block; white-space: nowrap; border: 1px solid transparent; }
+  .pri.alta  { background: var(--red-soft);   color: var(--red);   border-color: #eec4c0; }
+  .pri.media { background: var(--amber-soft); color: var(--amber); border-color: #e8d49a; }
+  .pri.baixa { background: var(--green-soft); color: var(--green); border-color: #bfe0cd; }
+  .pri.vazia { background: var(--sunken); color: var(--faint); border-color: var(--line-2); font-weight: 600; }
+  table.grade tbody tr.p-alta  td.c1 { box-shadow: inset 4px 0 0 var(--red); }
+  table.grade tbody tr.p-media td.c1 { box-shadow: inset 4px 0 0 var(--amber); }
+  table.grade tbody tr.p-baixa td.c1 { box-shadow: inset 4px 0 0 var(--green); }
+  table.grade tbody tr.p-alta  td.c1 .cel { padding-left: 14px; }
+  table.grade tbody tr.p-media td.c1 .cel { padding-left: 14px; }
+  table.grade tbody tr.p-baixa td.c1 .cel { padding-left: 14px; }
+  .chips { display: inline-flex; background: var(--sunken); border: 1px solid var(--line); border-radius: 99px; padding: 3px; }
+  .chips button { border: 0; background: transparent; color: var(--ink-2); padding: 6px 14px; border-radius: 99px;
+                  font-size: .85rem; font-weight: 500; }
+  .chips button[aria-pressed="true"] { background: var(--surface); color: var(--gold); box-shadow: var(--shadow-s); font-weight: 700; }
+  .chips button .n { font-variant-numeric: tabular-nums; opacity: .62; margin-left: 5px; font-size: .78rem; }
+  .vazio-grade { padding: 54px 24px; text-align: center; color: var(--muted); }
+  .vazio-grade b { display: block; font-size: 1rem; color: var(--ink-2); margin-bottom: 5px; font-weight: 600; }
+
+  /* ---- painéis que abrem (importar / ajustes) ---- */
+  .painel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-m);
+            box-shadow: var(--shadow-s); margin-bottom: 16px; }
+  .painel > h2 { margin: 0; padding: 13px 18px; font-size: .92rem; font-weight: 600; border-bottom: 1px solid var(--line);
+                 display: flex; align-items: center; gap: 9px; }
+  .painel > h2 .fechar { margin-left: auto; }
+  .painel-corpo { padding: 16px 18px; display: grid; gap: 14px; }
+  .envio { display: inline-flex; align-items: center; gap: 10px; padding: 9px 14px; border: 1px dashed var(--line-3);
+           border-radius: var(--r-s); cursor: pointer; background: var(--raised); font-size: .9rem; }
+  .envio input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .nota { font-size: .82rem; color: var(--muted); margin: 0; }
+  .rotulo { display: block; font-size: .84rem; font-weight: 600; margin-bottom: 5px; }
+  select, input[type=text] { font: inherit; font-size: .88rem; padding: 7px 10px; border: 1px solid var(--line-2);
+                             border-radius: var(--r-s); background: var(--surface); color: var(--ink); max-width: 100%; }
+  .de-para { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 13px; }
+  .previa { overflow: auto; border: 1px solid var(--line); border-radius: var(--r-s); max-height: 210px; }
+  .previa table { border-collapse: collapse; font-size: .78rem; width: 100%; }
+  .previa th, .previa td { border: 1px solid var(--line); padding: 5px 9px; text-align: left; white-space: nowrap; }
+  .previa th { background: var(--sunken); font-weight: 600; position: sticky; top: 0; }
+  .previa td.mono { font-family: var(--mono); }
+  .linha-acoes { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .regras-grade { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+  @media (max-width: 900px) { .regras-grade { grid-template-columns: 1fr; } }
+  textarea { width: 100%; min-height: 78px; font: 13px/1.5 var(--mono); padding: 9px 11px; resize: vertical;
+             border: 1px solid var(--line-2); border-radius: var(--r-s); background: var(--raised); color: var(--ink); }
+
+  /* ---- gaveta de histórico ---- */
+  .fundo { position: fixed; inset: 0; background: rgba(28,22,14,.34); z-index: 60; }
+  .gaveta { position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 100%); background: var(--surface);
+            z-index: 61; box-shadow: var(--shadow-l); display: flex; flex-direction: column; }
+  .gaveta header { position: static; box-shadow: none; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+  .gaveta .g-npu { font-family: var(--mono); font-size: .95rem; font-weight: 600; }
+  .gaveta .g-sub { font-size: .8rem; color: var(--muted); margin-top: 3px; }
+  .gaveta .g-corpo { overflow: auto; padding: 4px 0 24px; flex: 1; }
+  .gaveta .g-topo { display: flex; align-items: flex-start; gap: 12px; }
+  .gaveta .g-topo .fechar { margin-left: auto; }
+  .gaveta .g-campos { display: grid; gap: 11px; padding: 15px 20px; border-bottom: 1px solid var(--line); background: var(--raised); }
+  .gaveta .g-campos label { display: block; font-size: .78rem; font-weight: 600; color: var(--muted); margin-bottom: 3px; }
+  .gaveta .g-campos input, .gaveta .g-campos select { width: 100%; }
+  .hist { padding: 11px 20px; border-bottom: 1px solid var(--line); }
+  .hist time { font-family: var(--mono); font-size: .76rem; color: var(--muted); }
+  .hist p { margin: 4px 0 0; font-size: .85rem; line-height: 1.45; }
+  .hist .selo { margin-right: 6px; }
+
+  @media (max-width: 760px) {
+    .topo, .abas, main { padding-left: 13px; padding-right: 13px; }
+    :root { --col-npu: 164px; --col-fase: 112px; --col-juizo: 124px; --col-objetivo: 140px;
+            --col-obs: 130px; --col-prior: 86px; }
+    .rolagem { max-height: calc(100vh - 300px); }
+  }
+</style>
+</head>
+<body>
+
+<!-- porta de entrada: nada da aplicação aparece antes de saber quem é -->
+<div class="porta" id="porta" hidden>
+  <div class="porta-cartao">
+    <div class="porta-marca">
+      <div class="selo-marca" aria-hidden="true">DG</div>
+      <div><h1 style="margin:0;font-size:21px">Dili<b>GLA</b></h1>
+           <p style="margin:0;font-size:12.5px;color:var(--muted)">Setor de Diligências</p></div>
+    </div>
+    <h2 id="porta-titulo">Entrar</h2>
+    <p class="nota" id="porta-sub">Use o e-mail do escritório.</p>
+    <div class="erro" id="porta-erro" hidden></div>
+    <div class="campo" id="campo-nome" hidden>
+      <label for="porta-nome">Nome completo</label>
+      <input type="text" id="porta-nome" autocomplete="name">
+    </div>
+    <div class="campo">
+      <label for="porta-email">E-mail</label>
+      <input type="email" id="porta-email" autocomplete="username" inputmode="email">
+    </div>
+    <div class="campo">
+      <label for="porta-senha">Senha</label>
+      <input type="password" id="porta-senha" autocomplete="current-password">
+    </div>
+    <div class="linha-acoes">
+      <button class="primario" id="porta-entrar">Entrar</button>
+      <button class="trocar" id="porta-modo">Criar conta</button>
+      <span class="vazio-flex"></span>
+      <button class="trocar" id="porta-esqueci">Esqueci a senha</button>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="topo">
+    <div class="marca">
+      <div class="selo-marca" aria-hidden="true">DG</div>
+      <div>
+        <h1>Dili<b>GLA</b></h1>
+        <p>Acompanhamento de diligências · PJe TJPE, 1º e 2º graus</p>
+      </div>
+    </div>
+    <div class="direita">
+      <button id="relatorio" class="primario">Puxar relatório</button>
+      <button id="relatorio-objetivos" class="primario" title="Relatório de objetivos da aba aberta, em folha A4 para imprimir ou salvar em PDF">Relatório de objetivos</button>
+      <button id="relatorio-csv" class="secundario" hidden title="Saída em CSV, sem depender do gerador de planilhas">Baixar em CSV</button>
+      <button id="abrir-importar" class="secundario">Importar base</button>
+      <span class="eu" id="eu" hidden>
+        <span class="sinal" id="sinal" title="Estado da gravação"><i></i><span id="sinal-txt">salvo</span></span>
+        <b id="eu-nome"></b><span class="cracha" id="eu-papel"></span>
+        <button class="secundario" id="sair">Sair</button>
+      </span>
+    </div>
+  </div>
+  <nav class="navegacao" id="navegacao" hidden>
+    <button data-tela="carteiras" aria-current="true">Carteiras</button>
+    <button data-tela="passagens">Passagens<span class="conta" id="conta-passagens" hidden>0</span></button>
+    <button data-tela="painel" id="nav-painel" hidden>Painel do setor</button>
+    <button data-tela="equipe" id="nav-equipe" hidden>Equipe</button>
+  </nav>
+  <div class="abas" id="abas" role="tablist" aria-label="Carteiras"></div>
+</header>
+
+<main>
+  <div class="aviso" id="aviso" hidden></div>
+  <div id="tela-carteiras">
+
+  <!-- importar base -->
+  <section class="painel" id="painel-importar" hidden>
+    <h2>Importar a base de processos
+      <button class="secundario fechar" data-fecha="painel-importar">Fechar</button></h2>
+    <div class="painel-corpo">
+      <p class="nota">Aceita planilha do Excel (.xlsx, .xls) ou .csv. A DiliGLA lê o cabeçalho, mostra como entendeu cada
+        coluna e deixa você corrigir antes de confirmar. Os processos vão para a aba do responsável indicado na planilha.</p>
+      <label class="envio">
+        <input type="file" id="arquivo" accept=".xlsx,.xls,.csv,.txt">
+        <span>Escolher planilha…</span>
+      </label>
+      <div id="mapa" hidden>
+        <div class="de-para" id="mapa-campos"></div>
+        <p class="nota" id="mapa-nota" style="margin-top:12px"></p>
+        <div class="previa" id="mapa-previa"></div>
+        <div class="linha-acoes" style="margin-top:13px">
+          <button id="confirmar-importar" class="primario">Confirmar importação</button>
+          <button id="cancelar-importar" class="secundario">Cancelar</button>
+          <label style="font-size:.85rem;display:inline-flex;gap:7px;align-items:center;color:var(--ink-2)">
+            <input type="checkbox" id="substituir" style="accent-color:var(--gold)">
+            Substituir a base atual em vez de somar a ela
+          </label>
+        </div>
+      </div>
+      <hr style="border:0;border-top:1px solid var(--line);margin:2px 0">
+      <p class="nota"><b>Trazer a base antiga do navegador.</b> Até agora cada pessoa tinha a própria
+        base presa ao navegador. Se você já usava a DiliGLA, traga aquilo para o banco uma vez: os
+        processos que já existirem são atualizados, não duplicados, e o objetivo atingido, a
+        observação e o histórico de andamentos vêm junto. Depois disso, trocar de computador deixa
+        de mudar alguma coisa.</p>
+      <div class="linha-acoes">
+        <button id="migrar-navegador" class="primario contorno">Trazer a base deste navegador</button>
+        <label class="envio" style="padding:7px 12px">
+          <input type="file" id="restaurar" accept=".json">
+          <span>…ou de um arquivo de cópia</span>
+        </label>
+        <button id="salvar-copia" class="secundario">Baixar cópia</button>
+        <span class="nota" id="uso-espaco"></span>
+      </div>
+      <hr style="border:0;border-top:1px solid var(--line);margin:2px 0">
+      <div class="linha-acoes">
+        <button id="limpar-base" class="secundario">Limpar tudo e começar de novo</button>
+        <span class="nota">A base agora é do setor inteiro e fica no banco.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ações da aba -->
+  <div class="barra">
+    <button id="ver24" class="primario">Últimas 24h</button>
+    <button id="ver72" class="primario contorno">Últimas 72h</button>
+    <button id="parar" class="secundario" hidden>Parar</button>
+    <button id="refazer" class="secundario" hidden>Refazer falhas</button>
+    <button id="limpar-vis" class="secundario" title="Esvazia a tela sem apagar a base nem o histórico das outras abas">Limpar visualização</button>
+    <progress id="progresso" hidden></progress>
+    <span class="carimbo" id="carimbo"></span>
+    <label class="opcao-2g" title="Dobra as idas ao PJe, mas é o que traz os acórdãos do 2º grau">
+      <input type="checkbox" id="usar-2g" checked> incluir 2º grau
+    </label>
+    <span class="vazio-flex"></span>
+    <div class="chips" id="chips-prioridade" role="group" aria-label="Filtrar por prioridade"></div>
+    <input type="search" id="busca" placeholder="Filtrar por número, objetivo, fase ou observação">
+  </div>
+
+  <div class="resumo" id="resumo"></div>
+
+  <div class="quadro">
+    <div class="rolagem" id="rolagem">
+      <table class="grade" id="grade">
+        <thead id="grade-cabeca"></thead>
+        <tbody id="grade-corpo"></tbody>
+      </table>
+    </div>
+    <div class="vazio-grade" id="vazio" hidden></div>
+  </div>
+  <p class="nota" id="pe" style="margin-top:12px"></p>
+  </div><!-- /tela-carteiras -->
+
+  <!-- ============================================ passagens entre carteiras -->
+  <div id="tela-passagens" hidden>
+    <h2 style="margin:18px 0 4px;font-size:18px">Passagens entre carteiras</h2>
+    <p class="nota" style="margin:0 0 16px">O gatilho é o ato obtido, e não a diligência
+      realizada. Nenhuma passagem se completa sem o aceite de quem recebe.</p>
+    <h3 style="font-size:14px;margin:18px 0 8px">Aguardando o seu aceite</h3>
+    <div class="cartoes" id="passagens-recebidas"></div>
+    <h3 style="font-size:14px;margin:24px 0 8px">Reconhecidas no andamento, ainda não propostas</h3>
+    <p class="nota" style="margin:0 0 10px">A DiliGLA leu o texto do andamento e reconheceu um
+      ato da tabela do item 5. Confira nos autos antes de propor.</p>
+    <div class="cartoes" id="passagens-sugeridas"></div>
+    <h3 style="font-size:14px;margin:24px 0 8px">Enviadas por você</h3>
+    <div class="cartoes" id="passagens-enviadas"></div>
+    <div id="bloco-setor" hidden>
+      <h3 style="font-size:14px;margin:24px 0 8px">Pendentes no setor inteiro</h3>
+      <p class="nota" style="margin:0 0 10px">A coordenação pode decidir no lugar do destino
+        quando a passagem travar.</p>
+      <div class="cartoes" id="passagens-setor"></div>
+    </div>
+  </div>
+
+  <!-- ====================================================== painel do setor -->
+  <div id="tela-painel" hidden>
+    <h2 style="margin:18px 0 4px;font-size:18px">Painel do setor</h2>
+    <p class="nota" style="margin:0 0 16px">É o que alimenta o relatório de sexta-feira.</p>
+    <div id="painel-corpo"></div>
+  </div>
+
+  <!-- ============================================================== equipe -->
+  <div id="tela-equipe" hidden>
+    <h2 style="margin:18px 0 4px;font-size:18px">Equipe</h2>
+    <p class="nota" style="margin:0 0 16px">Quem cria conta entra como leitura e não altera nada
+      até ser promovido aqui. Os apelidos são as grafias do nome na planilha, e é por eles que a
+      importação descobre de quem é cada linha.</p>
+    <div id="equipe-corpo"></div>
+  </div>
+</main>
+
+<datalist id="lista-fases"></datalist>
+<div class="fundo" id="fundo" hidden></div>
+<aside class="gaveta" id="gaveta" hidden aria-label="Histórico do processo">
+  <header>
+    <div class="g-topo">
+      <div>
+        <div class="g-npu" id="g-npu"></div>
+        <div class="g-sub" id="g-sub"></div>
+      </div>
+      <button class="secundario fechar" id="g-fechar">Fechar</button>
+    </div>
+  </header>
+  <div class="g-campos">
+    <div><label for="g-objetivo">Objetivo</label><input type="text" id="g-objetivo"></div>
+    <div><label for="g-observacao">Observação</label><input type="text" id="g-observacao"></div>
+    <div><label for="g-fase">Fase</label><input type="text" id="g-fase" list="lista-fases"></div>
+    <div><label for="g-prior">Prioridade</label><select id="g-prior">
+      <option value="">— sem prioridade —</option><option value="Alta">Alta</option>
+      <option value="Média">Média</option><option value="Baixa">Baixa</option></select></div>
+    <div><label for="g-resp">Aba (responsável)</label><select id="g-resp"></select></div>
+    <label class="atingido" id="g-atingido-rotulo" style="margin-top:2px">
+      <input type="checkbox" id="g-atingido"> objetivo atingido <time id="g-atingido-data"></time>
+    </label>
+    <div><label for="g-condicao">Condição da diligência</label><select id="g-condicao">
+      <option value="">— não definida —</option>
+      <option value="atuar">Atuar — há ato a obter</option>
+      <option value="validar">Validar — conferir autos, publicação ou saldo</option>
+      <option value="monitorar">Monitorar — prazo de terceiro em curso</option>
+      <option value="espera">Espera — formação do contraditório</option>
+      <option value="interno">Interno — peça ou cálculo do escritório</option>
+    </select></div>
+    <div><label for="g-gatilho">Passar para outra carteira</label><select id="g-gatilho">
+      <option value="">— escolha o ato obtido —</option></select>
+      <p class="nota" id="g-destino" style="margin:5px 0 0"></p></div>
+    <div class="linha-acoes">
+      <button id="g-salvar" class="primario contorno">Salvar</button>
+      <button id="g-propor" class="primario" hidden>Propor passagem</button>
+      <button id="g-remover" class="secundario">Remover da base</button>
+    </div>
+  </div>
+  <div class="g-corpo" id="g-corpo"></div>
+</aside>
+<script src="js/config.js"></script>
+<script src="js/supa.js"></script>
+<script src="js/sincronia.js"></script>
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+
+// Texto vindo do PJe nunca entra cru no HTML: um "<" num andamento quebraria a linha da
+// planilha e engoliria todas as seguintes.
+const esc = t => String(t ?? "").replace(/[&<>"']/g, c =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+const soDigitos = t => String(t ?? "").replace(/\D/g, "");
+const mascara = n => `${n.slice(0,7)}-${n.slice(7,9)}.${n.slice(9,13)}.${n[13]}.${n.slice(14,16)}.${n.slice(16)}`;
+const semAcento = t => String(t ?? "").normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+const z2 = n => String(n).padStart(2, "0");
+
+// dígito verificador do número único do CNJ: permite recompor zeros à esquerda que o Excel come
+function digitoConfere(n) {
+  if (!/^\d{20}$/.test(n)) return false;
+  try { return BigInt(n.slice(0, 7) + n.slice(9) + n.slice(7, 9)) % 97n === 1n; } catch { return false; }
+}
+function normalizarNpu(bruto) {
+  const n = soDigitos(bruto);
+  if (!n || n.length > 20 || n.length < 13) return "";
+  if (n.length === 20) return n;
+  const completo = n.padStart(20, "0");
+  return digitoConfere(completo) ? completo : "";
+}
+function paraData(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/.exec(String(iso || ""));
+  return m ? new Date(+m[1], m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)) : null;
+}
+const dd = d => `${z2(d.getDate())}/${z2(d.getMonth() + 1)}/${d.getFullYear()}`;
+const ddhh = iso => { const d = paraData(iso); return d ? `${dd(d)} ${z2(d.getHours())}:${z2(d.getMinutes())}` : ""; };
+const soHora = iso => { const d = paraData(iso); return d ? `${z2(d.getHours())}:${z2(d.getMinutes())}` : ""; };
+const soDia = iso => String(iso || "").slice(0, 10);
+function carimbarAgora() {
+  const d = new Date();
+  return `${d.getFullYear()}-${z2(d.getMonth() + 1)}-${z2(d.getDate())}T${z2(d.getHours())}:${z2(d.getMinutes())}:${z2(d.getSeconds())}`;
+}
+const DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+const pausa = ms => new Promise(r => setTimeout(r, ms));
+
+const ROTULO_TIPO = { sentenca: "Sentença", acordao: "Acórdão", conclusao: "Conclusão" };
+const CLASSE_TIPO = { sentenca: "ssent", acordao: "sacor", conclusao: "sconc" };
+const FIXAS = ["Ana", "Bruna", "Gerlanne", "Pedro"];
+const SEM_RESP = "Sem responsável";
+// A identidade de uma aba é o nome como veio na planilha ("Pedro Miguel"). O rótulo na tela
+// encurta para o primeiro nome, mas só quando ele for único — com dois Pedros, os dois
+// aparecem por extenso em vez de caírem na mesma aba.
+function rotuloAba(nome, todas) {
+  if (nome === SEM_RESP) return nome;
+  const primeiro = String(nome).trim().split(/\s+/)[0];
+  const colidem = todas.filter(o => o !== SEM_RESP
+    && semAcento(String(o).trim().split(/\s+/)[0]) === semAcento(primeiro)).length;
+  return colidem > 1 ? nome : primeiro;
+}
+
+// Prioridade: a planilha pode escrever de várias formas, e tudo cai em Alta / Média / Baixa.
+const PRIORIDADES = ["Alta", "Média", "Baixa"];
+const CLASSE_PRI = { "Alta": "alta", "Média": "media", "Baixa": "baixa" };
+const ORDEM_PRI = { "Alta": 0, "Média": 1, "Baixa": 2, "": 3 };
+function normalizarPrioridade(bruto) {
+  const t = semAcento(bruto);
+  if (!t) return "";
+  // a planilha do escritório ainda oferece URGENTE na lista suspensa; aqui ele entra
+  // como Alta, que é a faixa mais alta que existe no sistema
+  if (t.includes("urgen") || t.includes("alta") || t.includes("alto")
+      || /^(u|a|4|3|critica|prioritaria)$/.test(t)) return "Alta";
+  if (t.includes("media") || t.includes("medio") || /^(m|2|moderada|intermediaria)$/.test(t)) return "Média";
+  if (t.includes("baixa") || t.includes("baixo") || /^(b|1|normal|rotina)$/.test(t)) return "Baixa";
+  return "";
+}
+
+// ------------------------------------------------------------------ guarda dos dados
+// Os dados moram no Supabase, e não mais neste navegador. O localStorage continua
+// aqui, mas com outro papel: é a rede de segurança. Tudo o que a pessoa altera cai
+// primeiro na tela, depois numa fila gravada localmente, e só então sobe. Se a
+// internet cair no meio de uma diligência, a fila espera e sobe sozinha depois —
+// fechar a aba não perde nada.
+const CHAVE = "digla:cache";
+const PADRAO = () => ({
+  versao: 1, processos: {}, ordem: [], mov: {}, consultas: {}, extras: [],
+  regras: { sentenca: [], acordao: [], conclusao: [] }, usar2g: true,
+});
+let BD = PADRAO();
+
+// Carga: o banco manda. O cache local só entra em cena se o banco não responder,
+// para que a pessoa ao menos enxergue a carteira e saiba o que estava fazendo.
+async function carregar() {
+  try {
+    const dados = await DG.carregarTudo();
+    BD = DGS.hidratar(dados);
+    DGS.marcarMovimentosCarregados(BD);
+    DGS.transferencias = dados.transferencias || [];
+    try { localStorage.setItem(CHAVE, JSON.stringify({ ...BD, mov: movAteDias(30) })); } catch {}
+    return true;
+  } catch (e) {
+    console.error(e);
+    try {
+      const cru = JSON.parse(localStorage.getItem(CHAVE) || "{}");
+      if (cru && cru.ordem && cru.ordem.length) {
+        BD = { ...PADRAO(), ...cru };
+        BD.regras = { sentenca: [], acordao: [], conclusao: [], ...(BD.regras || {}) };
+        avisar("Não consegui falar com o banco agora, então esta é a última cópia que ficou "
+             + "neste computador. O que você alterar fica guardado e sobe quando a conexão voltar.", true);
+        return false;
+      }
+    } catch {}
+    BD = PADRAO();
+    avisar(`Não consegui carregar a base: ${e.message}`, true);
+    return false;
+  }
+}
+// O que a pessoa digita — base, fases, objetivos atingidos, prioridades — nunca é sacrificado.
+// Se o espaço do navegador apertar, o que sai é o histórico de andamentos mais antigo, nesta ordem.
+let falhaAoGravar = false;
+function movAteDias(dias) {
+  const limite = new Date(Date.now() - dias * 86400000).toISOString().slice(0, 10);
+  const saida = {};
+  for (const [npu, ms] of Object.entries(BD.mov || {})) {
+    const fica = {};
+    for (const [k, m] of Object.entries(ms)) if (soDia(m.data) >= limite) fica[k] = m;
+    if (Object.keys(fica).length) saida[npu] = fica;
+  }
+  return saida;
+}
+function gravar() {
+  // 1. sobe o que mudou, campo a campo, comparando com o espelho do banco
+  try { DGS.sincronizar(BD); }
+  catch (e) { console.error(e); avisar(`Não consegui enviar a alteração: ${e.message}`, true); }
+
+  // 2. guarda uma cópia aqui, que é o que sustenta a tela se o banco cair.
+  // Se o espaço apertar, o que sai é o histórico antigo de andamentos, nunca o
+  // que a pessoa digitou — e mesmo isso não perde nada, porque o banco já tem.
+  for (const montar of [() => BD,
+                        () => ({ ...BD, mov: movAteDias(30) }),
+                        () => ({ ...BD, mov: movAteDias(7) }),
+                        () => ({ ...BD, mov: {} })]) {
+    try { localStorage.setItem(CHAVE, JSON.stringify(montar())); break; } catch {}
+  }
+  falhaAoGravar = false;
+  mostrarEspaco();
+  return true;
+}
+
+function mostrarEspaco() {
+  const el = $("#uso-espaco");
+  if (el) el.textContent = `${BD.ordem.length} processos no banco.`;
+  const sinal = $("#sinal"), txt = $("#sinal-txt");
+  if (!sinal) return;
+  const n = DG.pendentes;
+  sinal.classList.toggle("pendente", n > 0);
+  txt.textContent = n ? `${n} para enviar` : "salvo";
+}
+// o aviso de saída com trabalho pendente vive na camada de dados, junto da fila
+
+function abas() {
+  const vistos = [];
+  for (const n of BD.ordem || []) {
+    const r = (BD.processos[n] || {}).resp || SEM_RESP;
+    if (!vistos.includes(r)) vistos.push(r);
+  }
+  for (const e of BD.extras || []) if (!vistos.includes(e)) vistos.push(e);
+  if (!vistos.length) return [...FIXAS];                 // antes da primeira importação
+  const comResp = vistos.filter(x => x !== SEM_RESP).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  return vistos.includes(SEM_RESP) ? [...comResp, SEM_RESP] : comResp;
+}
+let abaAtiva = FIXAS[0];
+let busca = "", filtroPri = "", parar = false, verificando = false, agendado = false;
+let importacao = null;
+
+// Dentro de cada aba os processos saem na ordem da prioridade — Alta, Média, Baixa, sem —
+// e, dentro de cada faixa, na ordem em que vieram da planilha.
+const daAba = aba => (BD.ordem || [])
+  .filter(n => (BD.processos[n] || {}).resp === aba)
+  .map((n, i) => [n, i])
+  .sort((a, b) => (ORDEM_PRI[(BD.processos[a[0]] || {}).prioridade || ""] ?? 3)
+                - (ORDEM_PRI[(BD.processos[b[0]] || {}).prioridade || ""] ?? 3) || a[1] - b[1])
+  .map(x => x[0]);
+const movsDe = npu => Object.entries(BD.mov[npu] || {})
+  .map(([chave, m]) => ({ ...m, chave }))
+  .sort((a, b) => String(a.data).localeCompare(String(b.data)));
+
+function avisar(texto, ruim) {
+  const el = $("#aviso");
+  el.textContent = texto || "";
+  el.hidden = !texto;
+  el.classList.toggle("ruim", !!ruim);
+}
+
+// ------------------------------------------------------------------ consulta ao PJe
+async function pedirProcesso(numero, janela) {
+  let r;
+  try {
+    r = await fetch("/api/processo", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ numero, janela, graus: BD.usar2g ? "12" : "1", regras: BD.regras }),
+    });
+  } catch { const e = new Error("sem resposta da DiliGLA"); e.rede = true; throw e; }
+  let j;
+  try { j = await r.json(); } catch { const e = new Error("resposta incompleta da DiliGLA"); e.rede = true; throw e; }
+  if (!j.ok) { const e = new Error(j.erro || `falha na consulta (${r.status})`); e.rede = r.status >= 500; throw e; }
+  return j.processo;
+}
+async function comRetentativas(numero, janela) {
+  let ultimo;
+  for (let t = 0; t < 3; t++) {
+    try { return await pedirProcesso(numero, janela); }
+    catch (e) { ultimo = e; if (!e.rede || parar) break; await pausa(1500 * (t + 1)); }
+  }
+  throw ultimo;
+}
+
+// Junta o que o PJe devolveu ao histórico que já existia. A chave de cada movimento vem
+// do intermediário, então consultar duas vezes não duplica linha nenhuma.
+function guardar(npu, p, carimbo) {
+  const reg = BD.processos[npu];
+  if (!reg) return 0;
+  reg.erro = p.encontrado ? "" : (p.erro || "não encontrado");
+  reg.orgao = p.orgao || reg.orgao || "";
+  reg.orgao_2g = p.orgao_2g || reg.orgao_2g || "";
+  reg.colegiado = p.colegiado || "";          // câmara ou turma, campo próprio do PJe
+  reg.relator = p.relator || "";              // só quando o nome está no próprio gabinete
+  if (p.orgao) reg.juizo = p.orgao;          // o juízo é o que o MNI devolve, não o que a planilha dizia
+  BD.mov[npu] = BD.mov[npu] || {};
+  let novos = 0;
+  for (const m of p.movimentos_periodo || []) {
+    if (BD.mov[npu][m.chave]) continue;
+    BD.mov[npu][m.chave] = { data: m.data, texto: m.texto, tipo: m.tipo || "", grau: m.grau || "1",
+                             codigo: m.codigo ?? "", captado: carimbo };
+    novos++;
+  }
+  return novos;
+}
+
+async function executar(janela, refazendo) {
+  if (verificando) return;
+  const todos = daAba(abaAtiva);
+  const alvos = refazendo ? todos.filter(n => (BD.processos[n] || {}).erro) : todos;
+  if (!alvos.length) {
+    avisar(refazendo ? "Nenhuma falha para refazer nesta aba." : `A aba de ${abaAtiva} está sem processos. Importe a base primeiro.`);
+    return;
+  }
+  verificando = true; parar = false; avisar("");
+  const carimbo = carimbarAgora();
+  for (const b of ["#ver24", "#ver72", "#relatorio", "#relatorio-objetivos", "#abrir-importar"]) $(b).disabled = true;
+  $("#refazer").hidden = true;
+  $("#parar").hidden = false; $("#parar").disabled = false;
+  const prog = $("#progresso"); prog.hidden = false; prog.max = alvos.length; prog.value = 0;
+
+  const fila = alvos.slice();
+  let feitos = 0, sucessos = 0, novos = 0, interrompido = "";
+  const comeco = Date.now();
+
+  async function trabalhador() {
+    while (fila.length && !parar) {
+      const n = fila.shift();
+      try {
+        novos += guardar(n, await comRetentativas(n, janela), carimbo);
+        sucessos++;
+      } catch (e) {
+        if (BD.processos[n]) BD.processos[n].erro = e.message;
+        if (sucessos === 0 && (e.rede || /certificado/i.test(e.message))) { interrompido = e.message; parar = true; }
+      }
+      feitos++; prog.value = feitos;
+      const decorrido = (Date.now() - comeco) / 1000, restam = alvos.length - feitos;
+      const falta = feitos >= 3 ? Math.round(restam * decorrido / feitos) : 0;
+      const tempo = falta > 90 ? ` · faltam ~${Math.ceil(falta / 60)} min` : falta ? ` · faltam ~${falta}s` : "";
+      $("#carimbo").textContent = `Consultando ${abaAtiva} (${janela}h)… ${feitos} de ${alvos.length}${tempo}`;
+      desenharDepois();
+    }
+  }
+  await Promise.all(Array.from({ length: 4 }, trabalhador));
+
+  BD.consultas[abaAtiva] = { em: carimbo, janela, total: alvos.length, feitos, novos };
+  gravar();
+  verificando = false;
+  $("#parar").hidden = true; prog.hidden = true;
+  for (const b of ["#ver24", "#ver72", "#relatorio", "#relatorio-objetivos", "#abrir-importar"]) $(b).disabled = false;
+  if (interrompido) {
+    avisar(interrompido === "sem resposta da DiliGLA"
+      ? "O servidor da DiliGLA não respondeu. Confira a internet e tente de novo em alguns instantes." : interrompido, true);
+  }
+  desenhar();
+  irParaORecente();
+}
+
+$("#ver24").addEventListener("click", () => executar("24"));
+$("#ver72").addEventListener("click", () => executar("72"));
+$("#refazer").addEventListener("click", () => executar((BD.consultas[abaAtiva] || {}).janela || "72", true));
+$("#parar").addEventListener("click", () => { parar = true; $("#parar").disabled = true; });
+
+// ------------------------------------------------------------------ desenho da grade
+function desenharDepois() {
+  if (agendado) return;
+  agendado = true;
+  setTimeout(() => { agendado = false; try { desenhar(); } catch (e) { console.error(e); } }, 1200);
+}
+
+function filtradas() {
+  const q = semAcento(busca);
+  return daAba(abaAtiva).filter(n => {
+    const p = BD.processos[n] || {};
+    if (filtroPri && (p.prioridade || "") !== filtroPri) return false;
+    if (!q) return true;
+    return semAcento(`${mascara(n)} ${n} ${p.fase} ${p.juizo} ${p.orgao_2g} ${p.colegiado} ${p.relator} ${p.objetivo} ${p.observacao} ${p.prioridade}`).includes(q);
+  });
+}
+
+// O Excel recusa : \ / ? * [ ] no nome de uma aba, recusa nome vazio, corta em 31 caracteres
+// e não aceita dois iguais. Um responsável chamado "Ana/Bruna" derrubava o relatório inteiro,
+// sem mensagem nenhuma. Aqui o nome é limpo e, se repetir, ganha um número.
+function nomeDeAba(bruto, jaUsados) {
+  let nome = String(bruto || "").replace(/[:\\/?*\[\]]/g, "-").replace(/\s+/g, " ").trim().slice(0, 31);
+  if (!nome) nome = "Aba";
+  let tentativa = nome, n = 2;
+  while (jaUsados.has(tentativa.toLowerCase())) {
+    const sufixo = ` (${n++})`;
+    tentativa = nome.slice(0, 31 - sufixo.length) + sufixo;
+  }
+  jaUsados.add(tentativa.toLowerCase());
+  return tentativa;
+}
+
+// Cabeçalho de uma coluna de data. Se a data não for legível, devolve o que veio em vez de
+// quebrar: um único movimento com data estranha derrubava a tela e o relatório.
+function rotuloData(iso) {
+  const d = paraData(iso);
+  return d ? { texto: dd(d), dia: DIAS[d.getDay()] } : { texto: String(iso || "?"), dia: "" };
+}
+
+// As colunas de data são a união das datas em que houve movimentação nos processos da aba,
+// em ordem cronológica. É isso que faz a planilha crescer para a direita com o tempo.
+function colunasDeData(npus) {
+  const datas = new Set();
+  for (const n of npus) for (const m of movsDe(n)) datas.add(soDia(m.data));
+  return [...datas].filter(d => d && paraData(d)).sort();
+}
+
+const VAZIO_CAMPO = { fase: "sem fase", observacao: "sem observação" };
+function tituloJuizo(p) {
+  return [p.juizo && `1º grau: ${p.juizo}`,
+          p.orgao_2g && `2º grau: ${p.orgao_2g}`,
+          p.colegiado && `Colegiado: ${p.colegiado}`,
+          p.relator && `Relator: ${p.relator}`].filter(Boolean).join("\n");
+}
+function celulaEditavel(npu, p, campo) {
+  const v = p[campo] || "";
+  return `<div class="cel-edit${v ? "" : " sem"}${campo === "observacao" ? " cel-obs" : ""}" `
+       + `data-campo="${campo}" data-npu="${esc(npu)}" `
+       + `title="${esc(v || "clique para escrever")}">${esc(v || VAZIO_CAMPO[campo])}</div>`;
+}
+// Fase e observação são editadas na própria planilha: um clique troca o texto por um campo,
+// Enter ou sair grava, Esc desfaz. Só a célula mexida é redesenhada, para não sacudir a tela.
+function editarCelula(cel) {
+  const npu = cel.dataset.npu, nome = cel.dataset.campo, p = BD.processos[npu];
+  if (!p || !nome) return;
+  const campo = document.createElement("input");
+  campo.type = "text"; campo.className = "edita-celula"; campo.value = p[nome] || "";
+  if (nome === "fase") campo.setAttribute("list", "lista-fases");
+  campo.setAttribute("aria-label", nome === "fase" ? "Fase do processo" : "Observação do processo");
+  cel.replaceWith(campo);
+  campo.focus(); campo.select();
+  let fechado = false;
+  const terminar = guardar => {
+    if (fechado) return;
+    fechado = true;
+    if (guardar) {
+      const novo = campo.value.replace(/\s+/g, " ").trim();
+      if (novo !== (p[nome] || "")) { p[nome] = novo; gravar(); if (nome === "fase") atualizarFases(); }
+    }
+    const molde = document.createElement("div");
+    molde.innerHTML = celulaEditavel(npu, p, nome);
+    campo.replaceWith(molde.firstElementChild);
+  };
+  campo.addEventListener("blur", () => terminar(true));
+  campo.addEventListener("keydown", ev => {
+    if (ev.key === "Enter") { ev.preventDefault(); terminar(true); }
+    else if (ev.key === "Escape") { ev.preventDefault(); terminar(false); }
+  });
+}
+// a lista de sugestões sai das fases que já existem na base, para ninguém escrever de três jeitos
+function atualizarFases() {
+  const vistas = [...new Set(Object.values(BD.processos).map(x => (x.fase || "").trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const el = $("#lista-fases");
+  if (el) el.innerHTML = vistas.map(f => `<option value="${esc(f)}"></option>`).join("");
+}
+
+function celulaDatas(npu, dia, ultimaConsulta) {
+  const doDia = movsDe(npu).filter(m => soDia(m.data) === dia);
+  if (!doDia.length) return '<td class="nada"></td>';
+  const partes = doDia.map(m => {
+    const novo = ultimaConsulta && m.captado === ultimaConsulta ? " novo" : "";
+    const selo = m.tipo ? `<span class="selo ${CLASSE_TIPO[m.tipo] || "sneutro"}">${esc(ROTULO_TIPO[m.tipo] || m.tipo)}</span> ` : "";
+    const grau = m.grau === "2" ? '<span class="selo sgrau">2º</span> ' : "";
+    return `<div class="mov${novo}"><time>${esc(soHora(m.data))}</time>${grau}${selo}`
+         + `<p title="${esc(m.texto)}">${esc(m.texto)}</p></div>`;
+  });
+  return `<td>${partes.join("")}</td>`;
+}
+
+function desenhar() {
+  // abas
+  const todasAbas = abas();
+  // uma importação pode trocar os nomes das abas ("Pedro" vira "Pedro Miguel"):
+  // se a aba aberta deixou de existir, abre a primeira
+  if (!todasAbas.includes(abaAtiva)) abaAtiva = todasAbas[0] || FIXAS[0];
+  $("#abas").innerHTML = todasAbas.map(a => {
+    const sel = a === abaAtiva;
+    return `<button role="tab" data-aba="${esc(a)}" aria-selected="${sel}" title="${esc(a)}">`
+         + `${esc(rotuloAba(a, todasAbas))}<span class="conta">${daAba(a).length}</span></button>`;
+  }).join("");
+
+  const npus = filtradas();
+  const consulta = BD.consultas[abaAtiva] || {};
+  const colunas = colunasDeData(npus);
+  const hojeISO = carimbarAgora().slice(0, 10);
+
+  // chips de prioridade
+  const todosDaAba = daAba(abaAtiva);
+  const contaPri = p => todosDaAba.filter(n => ((BD.processos[n] || {}).prioridade || "") === p).length;
+  $("#chips-prioridade").innerHTML = [["", "Todas", todosDaAba.length], ...PRIORIDADES.map(p => [p, p, contaPri(p)])]
+    .map(([v, r, n]) => `<button data-pri="${esc(v)}" aria-pressed="${filtroPri === v}">${esc(r)}`
+                      + `<span class="n">${n}</span></button>`).join("");
+
+  // cabeçalho
+  $("#grade-cabeca").innerHTML = "<tr>"
+    + '<th class="fix c1">NPU</th><th class="fix c2">Fase</th><th class="fix c3">Juízo responsável</th>'
+    + '<th class="fix c4">Objetivo</th><th class="fix c5">Observação</th>'
+    + '<th class="fix c6">Prioridade</th>'
+    + colunas.map(d => {
+        const r = rotuloData(d);
+        return `<th class="data${d === hojeISO ? " hoje" : ""}">${esc(r.texto)}`
+             + `<i>${esc(r.dia)}${d === hojeISO ? " · hoje" : ""}</i></th>`;
+      }).join("")
+    + (colunas.length ? "" : '<th class="data"><i>sem movimentação registrada ainda</i></th>')
+    + "</tr>";
+
+  // linhas
+  const linhas = [];
+  for (const n of npus) {
+    try {
+      const p = BD.processos[n] || {};
+      const movs = movsDe(n);
+      const marca = p.erro
+        ? `<span class="selo serro" title="${esc(p.erro)}">${esc(/não encontrado|not found/i.test(p.erro) ? "não encontrado" : "sem resposta do PJe")}</span>`
+        : movs.length ? `<span class="selo sneutro">${movs.length} andamento${movs.length > 1 ? "s" : ""}</span>`
+                      : '<span class="selo sneutro">sem andamento</span>';
+      const pri = p.prioridade || "";
+      linhas.push(`<tr class="${movs.length ? "" : "semmov"}${pri ? " p-" + CLASSE_PRI[pri] : ""}${p.atingido ? " feito" : ""}">`
+        + `<td class="fix c1"><div class="cel"><div class="npu">${esc(mascara(n))}</div>`
+        + (p.grupo ? `<div class="grupo-rotulo">${esc(p.grupo)}${p.categoria && p.categoria !== "propria"
+             ? `<span class="etiqueta ${esc(p.categoria)}">${esc(p.categoria)}</span>` : ""}</div>` : "")
+        + `<div class="sublinha">${marca}`
+        + (p.transferencia_aberta ? `<span class="selo spassagem">passagem pendente</span>` : "")
+        + `<button class="abrir" data-npu="${esc(n)}">histórico</button></div></div></td>`
+        + `<td class="fix c2"><div class="cel">${celulaEditavel(n, p, "fase")}</div></td>`
+        + `<td class="fix c3"><div class="cel cel-juizo" title="${esc(tituloJuizo(p))}">`
+        + `${esc(p.juizo || "—")}`
+        + (p.orgao_2g || p.colegiado
+            ? `<span class="segundo-grau">2º grau · ${esc(p.colegiado || p.orgao_2g)}</span>` : "")
+        + (p.relator ? `<span class="relator">Rel. ${esc(p.relator)}</span>` : "")
+        + `</div></td>`
+        + `<td class="fix c4"><div class="cel">`
+        + `<div class="cel-objetivo" title="${esc(p.objetivo)}">`
+        + `${p.atingido ? '<span class="visto" aria-hidden="true">\u2713</span>' : ""}${esc(p.objetivo || "—")}</div>`
+        + `<label class="atingido${p.atingido ? " feito" : ""}">`
+        + `<input type="checkbox" data-atingido="${esc(n)}"${p.atingido ? " checked" : ""}>`
+        + `${p.atingido ? `atingido <time>${esc(dd(paraData(p.atingido)))}</time>` : "objetivo atingido"}`
+        + `</label></div></td>`
+        + `<td class="fix c5"><div class="cel">${celulaEditavel(n, p, "observacao")}</div></td>`
+        + `<td class="fix c6"><div class="cel">`
+        + `<span class="pri ${pri ? CLASSE_PRI[pri] : "vazia"}">${esc(pri || "—")}</span>`
+        + (p.carteira ? `<span class="carteira-rotulo">${esc(p.carteira)}</span>` : "")
+        + (p.bloco_codigo ? `<span class="carteira-rotulo bloco" title="${esc(p.bloco || "")}${
+             p.origem_bloco ? " · origem " + esc(p.origem_bloco) : ""}">${esc(p.bloco_codigo)}</span>` : "")
+        + `</div></td>`
+        + (colunas.length ? colunas.map(d => celulaDatas(n, d, consulta.em)).join("") : '<td class="nada"></td>')
+        + "</tr>");
+    } catch (e) { console.error("linha", n, e); }
+  }
+  $("#grade-corpo").innerHTML = linhas.join("");
+
+  const semBase = !daAba(abaAtiva).length;
+  $("#vazio").hidden = !!npus.length;
+  $("#grade").hidden = !npus.length;
+  if (!npus.length) {
+    $("#vazio").innerHTML = semBase
+      ? `<b>A aba de ${esc(abaAtiva)} ainda não tem processos</b>Importe a planilha da base em “Importar base”, no topo.`
+      : `<b>Nenhum processo com esse filtro</b>Volte para “Todas” na prioridade${busca ? " e limpe o campo de busca" : ""} para ver a aba inteira.`;
+  }
+
+  // faixa de números da aba
+  const todos = daAba(abaAtiva);
+  const comMov = todos.filter(n => movsDe(n).length).length;
+  const totalMov = todos.reduce((s, n) => s + movsDe(n).length, 0);
+  const novosAgora = consulta.em
+    ? todos.reduce((s, n) => s + movsDe(n).filter(m => m.captado === consulta.em).length, 0) : 0;
+  const falhas = todos.filter(n => (BD.processos[n] || {}).erro).length;
+  $("#resumo").innerHTML = [
+    ["Processos na aba", todos.length, ""],
+    ["Com movimentação", comMov, ""],
+    ["Andamentos registrados", totalMov, ""],
+    ["Novos na última consulta", novosAgora, novosAgora ? "destaque" : ""],
+    ["Objetivos atingidos", todos.filter(n => (BD.processos[n] || {}).atingido).length, ""],
+    ["Sem resposta do PJe", falhas, ""],
+  ].map(([r, v, c]) => `<div class="${c}"><b>${v}</b><span>${esc(r)}</span></div>`).join("");
+
+  $("#refazer").hidden = !falhas || verificando;
+  if (!verificando) {
+    $("#carimbo").textContent = consulta.em
+      ? `Última consulta de ${abaAtiva}: ${ddhh(consulta.em)} · últimas ${consulta.janela}h · ${consulta.feitos} de ${consulta.total}`
+      : "Esta aba ainda não foi consultada";
+  }
+  atualizarFases();
+  mostrarEspaco();
+  $("#pe").textContent = `Base, fases, objetivos e histórico ficam no banco do setor: trocar de `
+    + `computador ou limpar o navegador não muda nada. O que você altera aparece aqui na hora e `
+    + `sobe em seguida; se a internet cair, fica guardado e sobe sozinho quando ela voltar.`;
+}
+
+$("#abas").addEventListener("click", e => {
+  const b = e.target.closest("button[data-aba]");
+  if (!b || verificando) return;
+  abaAtiva = b.dataset.aba;
+  filtroPri = "";
+  desenhar();
+  irParaORecente();
+});
+// Com semanas de histórico a planilha fica larga, e as colunas da esquerda são as mais
+// antigas. Ao trocar de aba ou terminar uma consulta, a tela abre no dia de hoje.
+function irParaORecente() {
+  const r = $("#rolagem");
+  if (r) r.scrollLeft = r.scrollWidth;
+}
+$("#busca").addEventListener("input", e => { busca = e.target.value; desenhar(); });
+$("#chips-prioridade").addEventListener("click", e => {
+  const b = e.target.closest("button[data-pri]");
+  if (!b) return;
+  filtroPri = b.dataset.pri === filtroPri ? "" : b.dataset.pri;
+  desenhar();
+});
+$("#limpar-vis").addEventListener("click", () => {
+  const n = daAba(abaAtiva).reduce((s, x) => s + movsDe(x).length, 0);
+  if (!n) { busca = ""; $("#busca").value = ""; desenhar(); return; }
+  if (!confirm(`Isso apaga da tela os ${n} andamento(s) já registrados na aba de ${abaAtiva}.\n\n`
+             + `Os processos, juízos e prioridades continuam. O histórico das outras abas também.\n\nApagar?`)) return;
+  for (const x of daAba(abaAtiva)) delete BD.mov[x];
+  delete BD.consultas[abaAtiva];
+  for (const x of daAba(abaAtiva)) if (BD.processos[x]) BD.processos[x].erro = "";
+  busca = ""; $("#busca").value = "";
+  gravar(); desenhar();
+});
+
+// ------------------------------------------------------------------ gaveta de histórico
+let gavetaNpu = "";
+function abrirGaveta(npu) {
+  const p = BD.processos[npu]; if (!p) return;
+  gavetaNpu = npu;
+  $("#g-npu").textContent = mascara(npu);
+  $("#g-sub").textContent = [p.orgao && `1º grau: ${p.orgao}`,
+                             p.orgao_2g && `2º grau: ${p.orgao_2g}`,
+                             p.colegiado && `Colegiado: ${p.colegiado}`,
+                             p.relator && `Relator: ${p.relator}`]
+    .filter(Boolean).join(" · ") || "sem dados do PJe ainda";
+  $("#g-objetivo").value = p.objetivo || "";
+  $("#g-fase").value = p.fase || "";
+  $("#g-observacao").value = p.observacao || "";
+  $("#g-prior").value = p.prioridade || "";
+  $("#g-atingido").checked = !!p.atingido;
+  $("#g-atingido-data").textContent = p.atingido ? dd(paraData(p.atingido)) : "";
+  $("#g-atingido-rotulo").classList.toggle("feito", !!p.atingido);
+  const paraEscolher = [...abas()];
+  if (!paraEscolher.includes(SEM_RESP)) paraEscolher.push(SEM_RESP);
+  if (p.resp && !paraEscolher.includes(p.resp)) paraEscolher.push(p.resp);
+  $("#g-resp").innerHTML = paraEscolher.map(a =>
+    `<option value="${esc(a)}"${a === p.resp ? " selected" : ""}>${esc(a)}</option>`).join("");
+  $("#g-condicao").value = p.condicao || "";
+  montarGatilhos(p);
+  const movs = movsDe(npu).reverse();
+  $("#g-corpo").innerHTML = movs.length ? movs.map(m => {
+    const selo = m.tipo ? `<span class="selo ${CLASSE_TIPO[m.tipo] || "sneutro"}">${esc(ROTULO_TIPO[m.tipo] || m.tipo)}</span>` : "";
+    const grau = `<span class="selo sgrau">${m.grau === "2" ? "2º grau" : "1º grau"}</span>`;
+    return `<div class="hist"><time>${esc(ddhh(m.data))}</time><p>${selo}${grau} ${esc(m.texto)}</p></div>`;
+  }).join("") : '<div class="hist"><p style="color:var(--muted)">Nenhum andamento registrado para este processo.</p></div>';
+  $("#gaveta").hidden = false; $("#fundo").hidden = false;
+}
+function fecharGaveta() { $("#gaveta").hidden = true; $("#fundo").hidden = true; gavetaNpu = ""; }
+$("#grade-corpo").addEventListener("click", e => {
+  const b = e.target.closest("button[data-npu]");
+  if (b) { abrirGaveta(b.dataset.npu); return; }
+  const cel = e.target.closest(".cel-edit");
+  if (cel) editarCelula(cel);
+});
+$("#grade-corpo").addEventListener("change", e => {
+  const c = e.target.closest("input[data-atingido]");
+  if (!c) return;
+  marcarAtingido(c.dataset.atingido, c.checked);
+});
+// Guarda o dia em que a pessoa deu o check. Redesenhar mexe na altura das linhas,
+// então a posição da rolagem volta a ser a mesma.
+function marcarAtingido(npu, ligado) {
+  const p = BD.processos[npu];
+  if (!p) return;
+  p.atingido = ligado ? carimbarAgora() : "";
+  gravar();
+  const r = $("#rolagem"), x = r.scrollLeft, y = r.scrollTop;
+  desenhar();
+  r.scrollLeft = x; r.scrollTop = y;
+}
+$("#g-fechar").addEventListener("click", fecharGaveta);
+$("#fundo").addEventListener("click", fecharGaveta);
+document.addEventListener("keydown", e => { if (e.key === "Escape") fecharGaveta(); });
+$("#g-salvar").addEventListener("click", () => {
+  const p = BD.processos[gavetaNpu]; if (!p) return;
+  p.objetivo = $("#g-objetivo").value.trim();
+  p.fase = $("#g-fase").value.replace(/\s+/g, " ").trim();
+  p.observacao = $("#g-observacao").value.replace(/\s+/g, " ").trim();
+  p.prioridade = $("#g-prior").value;
+  p.condicao = $("#g-condicao").value || "";
+  p.revisado_em = carimbarAgora();   // conferiu os autos: o ritmo recomeça daqui
+  const marcado = $("#g-atingido").checked;
+  if (marcado !== !!p.atingido) p.atingido = marcado ? carimbarAgora() : "";
+  const resp = $("#g-resp").value;
+  if (resp !== p.resp) {
+    p.resp = resp;
+    if (!abas().includes(resp) && resp !== SEM_RESP) BD.extras.push(resp);
+  }
+  gravar(); fecharGaveta(); desenhar();
+});
+$("#g-remover").addEventListener("click", () => {
+  if (!confirm(`Remover ${mascara(gavetaNpu)} da base, com o histórico de andamentos dele?`)) return;
+  delete BD.processos[gavetaNpu]; delete BD.mov[gavetaNpu];
+  BD.ordem = BD.ordem.filter(x => x !== gavetaNpu);
+  gravar(); fecharGaveta(); desenhar();
+});
+
+// ------------------------------------------------------------------ importar a base
+const ALVOS = [
+  { campo: "npu", rotulo: "NPU (número do processo)", teste: /npu|processo|numero|cnj/ },
+  { campo: "resp", rotulo: "Responsável (define a aba)", teste: /respons|estagi|diligen|atribu|colaborad/ },
+  { campo: "juizo", rotulo: "Juízo responsável", teste: /juizo|vara|orgao|juizado|comarca|julgador|forum/ },
+  { campo: "objetivo", rotulo: "Objetivo", teste: /objetivo|objeto|finalidade|pedido|assunto|tese/ },
+  { campo: "fase", rotulo: "Fase", teste: /fase|etapa|estagio|situacao|status/ },
+  { campo: "observacao", rotulo: "Observação", teste: /observac|obs\b|anotac|comentario|nota/ },
+  { campo: "prioridade", rotulo: "Prioridade", teste: /prioridade|priorid|urgencia|criticidade/ },
+  { campo: "grupo", rotulo: "Grupo (número + matéria)", teste: /^grupo|grupo\/|materia|assunto do grupo/ },
+  { campo: "carteira", rotulo: "Carteira estratégica", teste: /carteira|enquadram|classificac/ },
+  { campo: "valor", rotulo: "Valor", teste: /valor|provisionad|montante|saldo|honorari/ },
+  { campo: "bloco", rotulo: "Bloco de origem", teste: /bloco|origem|tutela|custodi|etiqueta/ },
+];
+function escolherCabecalho(linhas) {
+  let melhor = 0, nota = -1;
+  for (let i = 0; i < Math.min(12, linhas.length); i++) {
+    const n = pontuarLinha(linhas[i]);
+    if (n > nota) { nota = n; melhor = i; }
+  }
+  return melhor;
+}
+function pontuarLinha(linha) {
+  const cels = (linha || []).map(semAcento).filter(Boolean);
+  if (cels.length < 2) return -1;
+  return ALVOS.filter(a => cels.some(c => a.teste.test(c))).length * 10 + cels.length;
+}
+// quantos dos campos esperados a melhor linha desta aba reconhece
+function notaDoCabecalho(linhas) {
+  let melhor = 0;
+  for (let i = 0; i < Math.min(12, linhas.length); i++) {
+    const cels = (linhas[i] || []).map(semAcento).filter(Boolean);
+    if (cels.length < 2) continue;
+    melhor = Math.max(melhor, ALVOS.filter(a => cels.some(c => a.teste.test(c))).length);
+  }
+  return melhor;
+}
+function detectar(cabecalhos) {
+  const mapa = {}, usados = new Set();
+  for (const a of ALVOS) {
+    const i = cabecalhos.findIndex((c, k) => !usados.has(k) && a.teste.test(semAcento(c)));
+    if (i >= 0) { mapa[a.campo] = i; usados.add(i); }
+  }
+  // sem cabeçalho reconhecível para o NPU: procura a coluna que mais parece conter números de processo
+  if (mapa.npu === undefined) mapa.npu = -1;
+  return mapa;
+}
+
+$("#arquivo").addEventListener("change", async e => {
+  const arquivo = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (!arquivo) return;
+  avisar("");
+  try {
+    if (!window.XLSX) throw new Error("O leitor de planilhas não carregou. Recarregue a página.");
+    const wb = XLSX.read(await arquivo.arrayBuffer(), { type: "array", cellDates: false });
+    // o modelo tem três abas (Listas, Processos, Como preencher): vence a que tem o
+    // cabeçalho mais parecido com o esperado, e só no empate a que tem mais linhas
+    let linhas = [], melhorNota = -1, abaEscolhida = "";
+    for (const nome of wb.SheetNames) {
+      const l = XLSX.utils.sheet_to_json(wb.Sheets[nome], { header: 1, raw: false, defval: "" })
+        .map(r => r.map(c => String(c ?? "").trim())).filter(r => r.some(Boolean));
+      if (l.length < 2) continue;
+      const nota = notaDoCabecalho(l) * 1000 + l.length;
+      if (nota > melhorNota) { melhorNota = nota; linhas = l; abaEscolhida = nome; }
+    }
+    if (linhas.length < 2) throw new Error("A planilha não tem linhas de dados.");
+    const iCab = escolherCabecalho(linhas);
+    const cabecalhos = (linhas[iCab] || []).map((c, i) => c || `coluna ${i + 1}`);
+    const corpo = linhas.slice(iCab + 1);
+    if (!corpo.length) throw new Error("A planilha só tem o cabeçalho.");
+    // se o NPU não foi reconhecido pelo nome, escolhe a coluna com mais números válidos
+    const mapa = detectar(cabecalhos);
+    if (mapa.npu < 0) {
+      let melhor = 0, nota = 0;
+      for (let c = 0; c < cabecalhos.length; c++) {
+        const n = corpo.reduce((s, r) => s + (normalizarNpu(r[c]) ? 1 : 0), 0);
+        if (n > nota) { nota = n; melhor = c; }
+      }
+      mapa.npu = melhor;
+    }
+    importacao = { cabecalhos, corpo, mapa, arquivo: arquivo.name, aba: abaEscolhida };
+    montarMapa();
+    $("#painel-importar").hidden = false;
+  } catch (err) { avisar(`Não deu para ler a planilha: ${err.message}`, true); }
+});
+
+function montarMapa() {
+  const { cabecalhos, mapa } = importacao;
+  $("#mapa-campos").innerHTML = ALVOS.map(a => `<div>
+      <label class="rotulo" for="de-${a.campo}">${esc(a.rotulo)}</label>
+      <select id="de-${a.campo}" data-campo="${a.campo}" style="width:100%">
+        <option value="-1">— não tem na planilha —</option>
+        ${cabecalhos.map((c, i) => `<option value="${i}"${mapa[a.campo] === i ? " selected" : ""}>${esc(c)}</option>`).join("")}
+      </select></div>`).join("");
+  $$("#mapa-campos select").forEach(s => s.addEventListener("change", () => {
+    importacao.mapa[s.dataset.campo] = +s.value;
+    montarPrevia();
+  }));
+  montarPrevia();
+  $("#mapa").hidden = false;
+}
+
+function lerImportacao() {
+  const { corpo, mapa } = importacao;
+  const pega = (r, campo) => (mapa[campo] >= 0 ? String(r[mapa[campo]] ?? "").trim() : "");
+  const vistos = new Set(), linhas = [], ruins = [];
+  for (const r of corpo) {
+    const bruto = pega(r, "npu");
+    if (!bruto) continue;
+    const npu = normalizarNpu(bruto);
+    if (!npu) { if (soDigitos(bruto).length >= 10) ruins.push(bruto); continue; }
+    if (vistos.has(npu)) continue;
+    vistos.add(npu);
+    const respBruto = pega(r, "resp").replace(/\s+/g, " ").trim();
+    // o nome vai como está na planilha: casar por primeiro nome juntaria "Pedro Miguel"
+    // e "Pedro Campos" na mesma aba
+    const alvo = abas().find(a => semAcento(a) === semAcento(respBruto)) || respBruto || SEM_RESP;
+    linhas.push({ npu, juizo: pega(r, "juizo"), objetivo: pega(r, "objetivo"), resp: alvo,
+                  fase: pega(r, "fase"), observacao: pega(r, "observacao"),
+                  grupo: pega(r, "grupo"), carteira: pega(r, "carteira"),
+                  valor: pega(r, "valor"), bloco: pega(r, "bloco"),
+                  prioridade: normalizarPrioridade(pega(r, "prioridade")),
+                  prioridadeBruta: pega(r, "prioridade") });
+  }
+  return { linhas, ruins };
+}
+
+function montarPrevia() {
+  const { linhas, ruins } = lerImportacao();
+  const porAba = {};
+  for (const l of linhas) porAba[l.resp] = (porAba[l.resp] || 0) + 1;
+  const contagem = Object.entries(porAba).sort((a, b) => b[1] - a[1])
+    .map(([a, n]) => `${a}: ${n}`).join(" · ") || "nenhum";
+  const porPri = PRIORIDADES.map(p => `${p}: ${linhas.filter(l => l.prioridade === p).length}`).join(" · ");
+  const semPri = linhas.filter(l => !l.prioridade && l.prioridadeBruta);
+  $("#mapa-nota").innerHTML = `<b>${linhas.length}</b> processo(s) reconhecido(s) em “${esc(importacao.arquivo)}”. `
+    + `Distribuição pelas abas — ${esc(contagem)}.`
+    + (importacao.mapa.prioridade >= 0 ? ` Prioridade — ${esc(porPri)}.` : "")
+    + (semPri.length ? ` <span style="color:var(--amber)">${semPri.length} linha(s) com prioridade que não é Alta, Média nem Baixa (${esc([...new Set(semPri.map(l => l.prioridadeBruta))].slice(0, 3).join(", "))}) vão ficar sem prioridade.</span>` : "")
+    + (ruins.length ? ` <span style="color:var(--red)">${ruins.length} número(s) não conferem com o dígito verificador do CNJ e serão deixados de fora: ${esc(ruins.slice(0, 4).join(", "))}${ruins.length > 4 ? "…" : ""}</span>` : "");
+  const amostra = linhas.slice(0, 8);
+  $("#mapa-previa").innerHTML = amostra.length ? `<table><thead><tr>
+      <th>NPU</th><th>Fase</th><th>Juízo responsável</th><th>Objetivo</th><th>Prioridade</th><th>Aba</th></tr></thead><tbody>`
+    + amostra.map(l => `<tr><td class="mono">${esc(mascara(l.npu))}</td>`
+      + `<td>${esc(l.fase || "—")}</td>`
+      + `<td>${esc(l.juizo || "—")}</td><td>${esc(l.objetivo || "—")}</td>`
+      + `<td><span class="pri ${l.prioridade ? CLASSE_PRI[l.prioridade] : "vazia"}">${esc(l.prioridade || "—")}</span></td>`
+      + `<td>${esc(l.resp)}</td></tr>`).join("")
+    + "</tbody></table>" : '<p class="nota" style="padding:12px">Nenhuma linha reconhecida — confira a coluna escolhida para o NPU.</p>';
+}
+
+$("#confirmar-importar").addEventListener("click", async () => {
+  if (!importacao) return;
+  const { linhas } = lerImportacao();
+  if (!linhas.length) { avisar("Nenhum processo reconhecido na planilha.", true); return; }
+  const b = $("#confirmar-importar");
+  b.disabled = true;
+  avisar(`Enviando ${linhas.length} linha(s) para o banco…`);
+  try {
+    const r = await enviarImportacao(linhas, importacao.arquivo, importacao.aba);
+    importacao = null;
+    $("#mapa").hidden = true; $("#painel-importar").hidden = true;
+    await carregar();
+    desenhar();
+    let texto = `Importação concluída: ${r.criados} novo(s), ${r.atualizados} atualizado(s)`;
+    if (r.ignorados) texto += `, ${r.ignorados} recusado(s)`;
+    texto += ". O que já estava registrado aqui — objetivo atingido, observação e providências — "
+           + "foi preservado.";
+    avisar(texto, !!r.ignorados);
+    if (r.recusas && r.recusas.length) console.table(r.recusas);
+  } catch (e) {
+    avisar(`A importação não passou: ${e.message}`, true);
+  } finally {
+    b.disabled = false;
+  }
+});
+
+// O merge é feito no banco, numa transação só: a regra de quem manda em cada
+// campo mora num lugar único, e uma planilha pela metade não deixa a base
+// metade velha e metade nova.
+async function enviarImportacao(linhas, arquivo, aba) {
+  const lote = linhas.map(l => ({
+    npu: l.npu, responsavel: l.resp || "", grupo: l.grupo || "",
+    materia: l.materia || "", fase: l.fase || "", valor: l.valor || "",
+    prioridade: l.prioridade || "", objetivo: l.objetivo || "",
+    observacao: l.observacao || "", carteira: l.carteira || "", bloco: l.bloco || "",
+  }));
+  let acumulado = { criados: 0, atualizados: 0, ignorados: 0, recusas: [] };
+  // em blocos, que mil linhas num JSON só é pedir para a requisição estourar
+  for (let i = 0; i < lote.length; i += 300) {
+    const r = await DG.rpc("dg_importar", {
+      p_linhas: lote.slice(i, i + 300), p_arquivo: arquivo || null, p_aba: aba || null,
+    });
+    acumulado.criados += r.criados; acumulado.atualizados += r.atualizados;
+    acumulado.ignorados += r.ignorados;
+    acumulado.recusas = acumulado.recusas.concat(r.recusas || []);
+  }
+  return acumulado;
+}
+
+$("#cancelar-importar").addEventListener("click", () => {
+  importacao = null; $("#mapa").hidden = true; $("#painel-importar").hidden = true;
+});
+
+// ------------------------------------------------------------------ painéis
+$("#abrir-importar").addEventListener("click", () => {
+  const p = $("#painel-importar"); p.hidden = !p.hidden;
+  if (!p.hidden) p.scrollIntoView({ behavior: "smooth", block: "nearest" });
+});
+$$("[data-fecha]").forEach(b => b.addEventListener("click", () => {
+  $("#" + b.dataset.fecha).hidden = true;
+}));
+$("#usar-2g").addEventListener("change", () => {
+  BD.usar2g = $("#usar-2g").checked;
+  gravar();
+});
+// Antes este botão esvaziava o navegador de quem clicasse. Agora a base é de
+// todo mundo, e apagar seria apagar o trabalho do setor inteiro — então ele só
+// limpa a tela desta sessão.
+$("#limpar-base").addEventListener("click", () => {
+  avisar("A base agora fica no banco e é do setor inteiro, então não há mais como apagá-la "
+       + "daqui. Para tirar um processo de circulação, abra-o e use a passagem de baixa; "
+       + "para refazer a distribuição, importe a planilha nova.");
+  $("#painel-importar").hidden = true; $("#mapa").hidden = true;
+});
+
+// ---------------------------------------------------------- cópia de segurança
+$("#salvar-copia").addEventListener("click", () => {
+  const hoje = new Date();
+  const nome = `diligla-copia-${hoje.getFullYear()}-${z2(hoje.getMonth() + 1)}-${z2(hoje.getDate())}`
+             + `-${z2(hoje.getHours())}${z2(hoje.getMinutes())}.json`;
+  const url = URL.createObjectURL(new Blob([JSON.stringify(BD)], { type: "application/json" }));
+  const a = document.createElement("a");
+  a.href = url; a.download = nome; document.body.appendChild(a); a.click();
+  a.remove(); URL.revokeObjectURL(url);
+  avisar(`Cópia salva em ${nome}. Guarde fora desta máquina — é ela que devolve tudo se o navegador for limpo.`);
+});
+// Migração: cada pessoa ainda tem a própria base no navegador, da época em que a
+// DiliGLA não tinha banco. Este botão lê aquela base — a desta máquina ou a de um
+// arquivo de cópia — e sobe para o banco, preservando o que já foi marcado.
+$("#restaurar").addEventListener("change", async e => {
+  const arquivo = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (!arquivo) return;
+  try { await migrar(JSON.parse(await arquivo.text()), arquivo.name); }
+  catch (err) { avisar(`Não deu para migrar: ${err.message}`, true); }
+});
+
+$("#migrar-navegador").addEventListener("click", async () => {
+  let antigo = null;
+  try { antigo = JSON.parse(localStorage.getItem("digla:dados") || "null"); } catch {}
+  if (!antigo || !Array.isArray(antigo.ordem) || !antigo.ordem.length) {
+    avisar("Não encontrei base antiga neste navegador. Se ela estava em outro computador ou "
+         + "em outro endereço da DiliGLA, use o arquivo de cópia de segurança ao lado.", true);
+    return;
+  }
+  try { await migrar(antigo, "base deste navegador"); }
+  catch (err) { avisar(`Não deu para migrar: ${err.message}`, true); }
+});
+
+async function migrar(antigo, de) {
+  if (!antigo || typeof antigo !== "object" || !Array.isArray(antigo.ordem)
+      || typeof antigo.processos !== "object") {
+    throw new Error("o arquivo não parece uma base da DiliGLA");
+  }
+  const total = antigo.ordem.length;
+  if (!confirm(`Migrar ${total} processo(s) de ${de} para o banco?\n\n`
+             + `Os que já existirem no banco são atualizados, não duplicados. `
+             + `Objetivo atingido, observação e andamentos vão junto.`)) return;
+
+  avisar(`Migrando ${total} processo(s)…`);
+  const linhas = antigo.ordem.map(n => {
+    const p = antigo.processos[n] || {};
+    return { npu: n, resp: p.resp || "", objetivo: p.objetivo || "", fase: p.fase || "",
+             observacao: p.observacao || "", prioridade: p.prioridade || "",
+             grupo: p.grupo || "", carteira: "", valor: "", bloco: "" };
+  });
+  const r = await enviarImportacao(linhas, "migração", de);
+
+  // segunda passada: o que a importação não carrega, porque não é da planilha
+  await carregar();
+  let marcados = 0, comMov = 0;
+  for (const n of antigo.ordem) {
+    const velho = antigo.processos[n] || {};
+    const novo = BD.processos[n];
+    if (!novo) continue;
+    if (velho.atingido && !novo.atingido) { novo.atingido = velho.atingido; marcados++; }
+    if (velho.observacao && !novo.observacao) novo.observacao = velho.observacao;
+    const movs = (antigo.mov || {})[n] || {};
+    if (Object.keys(movs).length) {
+      BD.mov[n] = { ...movs, ...(BD.mov[n] || {}) };
+      comMov++;
+    }
+  }
+  gravar();
+  desenhar();
+  $("#painel-importar").hidden = true;
+  avisar(`Migração concluída: ${r.criados} processo(s) novo(s) no banco, ${r.atualizados} `
+       + `atualizado(s), ${marcados} objetivo(s) atingido(s) preservado(s) e o histórico de `
+       + `${comMov} processo(s) enviado. ${r.ignorados ? r.ignorados + " linha(s) recusada(s). " : ""}`
+       + `A partir de agora os dados ficam no banco, e trocar de computador não muda nada.`);
+}
+
+// ------------------------------------------------------------------ relatório em planilha
+// Qualquer erro aqui dentro fazia o botão não responder, sem aviso nenhum. Agora o erro
+// aparece na tela com a mensagem real, e o botão oferece a saída em CSV como plano B.
+$("#relatorio").addEventListener("click", () => {
+  try {
+    montarRelatorio();
+  } catch (e) {
+    console.error(e);
+    avisar(`Não foi possível gerar a planilha: ${e && e.message ? e.message : e}. `
+         + `Use “Baixar em CSV” ao lado para tirar os dados mesmo assim, e me mande esta mensagem.`, true);
+    $("#relatorio-csv").hidden = false;
+  }
+});
+function montarRelatorio() {
+  if (!window.XLSX) { avisar("O gerador de planilhas não carregou; confira a internet e recarregue a página.", true); return; }
+  if (!BD.ordem.length) { avisar("Não há base para relatar. Importe a planilha de processos primeiro.", true); return; }
+  const hoje = new Date();
+  const chaveHoje = `${hoje.getFullYear()}-${z2(hoje.getMonth() + 1)}-${z2(hoje.getDate())}`;
+  const wb = XLSX.utils.book_new();
+  const nomesUsados = new Set(["andamentos", "carteira", "panorama"]);   // reservadas
+  const dataCel = iso => { const d = paraData(iso); return d || ""; };
+
+  // 1) uma aba por estagiário, no mesmo desenho da tela: a planilha que cresce para a direita
+  const todasAbas = abas();
+  for (const aba of todasAbas) {
+    const npus = daAba(aba);
+    const colunas = colunasDeData(npus);
+    const cab = ["NPU", "Fase", "Juízo responsável", "Colegiado (2º grau)", "Relator", "Objetivo", "Observação",
+                 "Prioridade", "Objetivo atingido", "Atingido em", "Situação",
+                 ...colunas.map(d => rotuloData(d).texto)];
+    const matriz = [cab];
+    for (const n of npus) {
+      const p = BD.processos[n] || {};
+      const movs = movsDe(n);
+      const linha = [mascara(n), p.fase || "", p.juizo || p.orgao || "", p.colegiado || "", p.relator || "",
+                     p.objetivo || "", p.observacao || "", p.prioridade || "",
+                     p.atingido ? "Sim" : "Não", p.atingido ? dataCel(p.atingido) : "",
+                     p.erro || (movs.length ? `${movs.length} andamento(s)` : "sem andamento")];
+      for (const d of colunas) {
+        linha.push(movsDe(n).filter(m => soDia(m.data) === d).map(m =>
+          `${soHora(m.data)}${m.grau === "2" ? " [2º grau]" : ""}`
+          + `${m.tipo ? ` [${ROTULO_TIPO[m.tipo]}]` : ""} ${m.texto}`).join("\n"));
+      }
+      matriz.push(linha);
+    }
+    if (npus.length === 0) matriz.push(["sem processos nesta aba", "", "", "", "", "", "", "", "", "", ""]);
+    const ws = XLSX.utils.aoa_to_sheet(matriz);
+    ws["!cols"] = [{ wch: 26 }, { wch: 22 }, { wch: 38 }, { wch: 32 }, { wch: 30 }, { wch: 28 }, { wch: 34 },
+                   { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 22 }, ...colunas.map(() => ({ wch: 46 }))];
+    ws["!rows"] = [{ hpt: 20 }];
+    ws["!freeze"] = { xSplit: 11, ySplit: 1 };
+    ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(1, matriz.length - 1), c: 10 } }) };
+    XLSX.utils.book_append_sheet(wb, ws, nomeDeAba(rotuloAba(aba, todasAbas), nomesUsados));
+  }
+
+  // 2) todos os andamentos, um por linha — a visão para somar, filtrar e cruzar
+  const andamentos = [];
+  for (const n of BD.ordem) {
+    const p = BD.processos[n] || {};
+    for (const m of movsDe(n)) {
+      andamentos.push({
+        "Aba": p.resp || "", "NPU": mascara(n), "Fase": p.fase || "",
+        "Juízo responsável": p.juizo || p.orgao || "", "Colegiado (2º grau)": p.colegiado || "",
+        "Relator": p.relator || "", "Objetivo": p.objetivo || "",
+        "Observação": p.observacao || "", "Prioridade": p.prioridade || "",
+        "Objetivo atingido": p.atingido ? "Sim" : "Não",
+        "Grau": m.grau === "2" ? "2º grau" : "1º grau",
+        "Órgão no PJe": m.grau === "2" ? (p.orgao_2g || p.orgao || "") : (p.orgao || ""),
+        "Data do andamento": dataCel(m.data), "Código CNJ": m.codigo ?? "",
+        "Tipo": m.tipo ? ROTULO_TIPO[m.tipo] : "", "Movimento": m.texto,
+        "Registrado na DiliGLA em": dataCel(m.captado),
+      });
+    }
+  }
+  andamentos.sort((a, b) => a.Aba.localeCompare(b.Aba) || a.NPU.localeCompare(b.NPU)
+    || (a["Data do andamento"] > b["Data do andamento"] ? 1 : a["Data do andamento"] < b["Data do andamento"] ? -1 : 0));
+  const ws2 = XLSX.utils.json_to_sheet(andamentos.length ? andamentos
+    : [{ "Aba": "nenhum andamento registrado ainda" }], { cellDates: true, dateNF: "dd/mm/yyyy hh:mm" });
+  ws2["!cols"] = [14, 26, 22, 38, 32, 30, 28, 34, 12, 16, 10, 36, 18, 11, 12, 72, 20].map(w => ({ wch: w }));
+  if (andamentos.length) {
+    ws2["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: andamentos.length, c: 16 } }) };
+    ws2["!freeze"] = { xSplit: 0, ySplit: 1 };
+  }
+  XLSX.utils.book_append_sheet(wb, ws2, "Andamentos");
+
+  // 3) a carteira inteira, com ou sem movimentação
+  const carteira = BD.ordem.map(n => {
+    const p = BD.processos[n] || {}, movs = movsDe(n);
+    const ultimo = movs.length ? movs[movs.length - 1] : null;
+    const datas = new Set(movs.map(m => soDia(m.data)));
+    return {
+      "Aba": p.resp || "", "NPU": mascara(n), "Fase": p.fase || "",
+      "Juízo responsável": p.juizo || p.orgao || "", "Colegiado (2º grau)": p.colegiado || "",
+      "Relator": p.relator || "", "Objetivo": p.objetivo || "",
+      "Observação": p.observacao || "", "Prioridade": p.prioridade || "",
+      "Objetivo atingido": p.atingido ? "Sim" : "Não", "Atingido em": p.atingido ? dataCel(p.atingido) : "",
+      "Andamentos registrados": movs.length,
+      "Datas com movimentação": datas.size,
+      "Sentenças": movs.filter(m => m.tipo === "sentenca").length,
+      "Acórdãos": movs.filter(m => m.tipo === "acordao").length,
+      "Conclusões": movs.filter(m => m.tipo === "conclusao").length,
+      "Último andamento": ultimo ? dataCel(ultimo.data) : "",
+      "Texto do último andamento": ultimo ? ultimo.texto : "",
+      "Situação": p.erro || (movs.length ? "" : "sem andamento no período consultado"),
+    };
+  });
+  const ws3 = XLSX.utils.json_to_sheet(carteira.length ? carteira : [{ "Aba": "base vazia" }],
+                                       { cellDates: true, dateNF: "dd/mm/yyyy hh:mm" });
+  ws3["!cols"] = [14, 26, 22, 38, 32, 30, 28, 34, 12, 16, 16, 12, 12, 11, 11, 12, 18, 66, 38].map(w => ({ wch: w }));
+  if (carteira.length) {
+    ws3["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: carteira.length, c: 18 } }) };
+    ws3["!freeze"] = { xSplit: 0, ySplit: 1 };
+  }
+  XLSX.utils.book_append_sheet(wb, ws3, "Carteira");
+
+  // 4) panorama: o mesmo conjunto de números que a tela mostra, aba por aba
+  const panorama = abas().map(aba => {
+    const npus = daAba(aba), c = BD.consultas[aba] || {};
+    const movs = npus.flatMap(n => movsDe(n));
+    const comPri = p => npus.filter(n => (BD.processos[n] || {}).prioridade === p);
+    return {
+      "Aba": aba, "Processos": npus.length,
+      "Objetivos atingidos": npus.filter(n => (BD.processos[n] || {}).atingido).length,
+      "Objetivos em aberto": npus.filter(n => !(BD.processos[n] || {}).atingido).length,
+      "Alta": comPri("Alta").length, "Média": comPri("Média").length, "Baixa": comPri("Baixa").length,
+      "Alta sem movimentação": comPri("Alta").filter(n => !movsDe(n).length).length,
+      "Com movimentação": npus.filter(n => movsDe(n).length).length,
+      "Sem movimentação": npus.filter(n => !movsDe(n).length && !(BD.processos[n] || {}).erro).length,
+      "Andamentos registrados": movs.length,
+      "Sentenças": movs.filter(m => m.tipo === "sentenca").length,
+      "Acórdãos": movs.filter(m => m.tipo === "acordao").length,
+      "Conclusões": movs.filter(m => m.tipo === "conclusao").length,
+      "Datas com movimentação": new Set(movs.map(m => soDia(m.data))).size,
+      "Última consulta": c.em ? dataCel(c.em) : "",
+      "Janela da última consulta": c.janela ? `últimas ${c.janela}h` : "",
+      "Processos lidos na última consulta": c.feitos ?? "",
+      "Sem resposta do PJe": npus.filter(n => (BD.processos[n] || {}).erro).length,
+    };
+  });
+  const ws4 = XLSX.utils.json_to_sheet(panorama, { cellDates: true, dateNF: "dd/mm/yyyy hh:mm" });
+  ws4["!cols"] = [18, 11, 18, 18, 8, 8, 8, 22, 15, 15, 13, 11, 11, 12, 15, 18, 20, 20, 15].map(w => ({ wch: w }));
+  ws4["!freeze"] = { xSplit: 1, ySplit: 1 };
+  XLSX.utils.book_append_sheet(wb, ws4, "Panorama");
+
+  XLSX.writeFile(wb, `diligla-${chaveHoje}.xlsx`);
+  avisar("");
+  $("#relatorio-csv").hidden = true;
+}
+
+// Plano B que não depende de biblioteca nenhuma: a carteira inteira e todos os andamentos,
+// em dois arquivos CSV que o Excel abre. Serve quando o gerador de planilhas falha.
+function baixarCsv(nome, linhas) {
+  const cel = v => {
+    const t = String(v ?? "").replace(/"/g, '""');
+    return /[";\n\r]/.test(t) ? `"${t}"` : t;
+  };
+  const texto = "\uFEFF" + linhas.map(l => l.map(cel).join(";")).join("\r\n");
+  const url = URL.createObjectURL(new Blob([texto], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url; a.download = nome; document.body.appendChild(a); a.click();
+  a.remove(); URL.revokeObjectURL(url);
+}
+$("#relatorio-csv").addEventListener("click", () => {
+  const hoje = carimbarAgora().slice(0, 10);
+  const carteira = [["Aba", "NPU", "Fase", "Juízo responsável", "Colegiado (2º grau)", "Relator",
+                     "Objetivo", "Observação", "Prioridade", "Objetivo atingido", "Atingido em",
+                     "Andamentos registrados", "Último andamento", "Texto do último andamento", "Situação"]];
+  const andamentos = [["Aba", "NPU", "Fase", "Objetivo", "Prioridade", "Grau", "Data do andamento",
+                       "Código CNJ", "Tipo", "Movimento"]];
+  for (const n of BD.ordem) {
+    const p = BD.processos[n] || {}, movs = movsDe(n);
+    const ultimo = movs.length ? movs[movs.length - 1] : null;
+    carteira.push([p.resp || "", mascara(n), p.fase || "", p.juizo || p.orgao || "", p.colegiado || "",
+                   p.relator || "", p.objetivo || "", p.observacao || "", p.prioridade || "",
+                   p.atingido ? "Sim" : "Não", p.atingido ? ddhh(p.atingido) : "", movs.length,
+                   ultimo ? ddhh(ultimo.data) : "", ultimo ? ultimo.texto : "",
+                   p.erro || (movs.length ? "" : "sem andamento no período consultado")]);
+    for (const m of movs) {
+      andamentos.push([p.resp || "", mascara(n), p.fase || "", p.objetivo || "", p.prioridade || "",
+                       m.grau === "2" ? "2º grau" : "1º grau", ddhh(m.data), m.codigo ?? "",
+                       m.tipo ? ROTULO_TIPO[m.tipo] : "", m.texto]);
+    }
+  }
+  baixarCsv(`diligla-carteira-${hoje}.csv`, carteira);
+  baixarCsv(`diligla-andamentos-${hoje}.csv`, andamentos);
+  avisar(`Saíram dois arquivos CSV: a carteira (${carteira.length - 1} processos) e os andamentos `
+       + `(${andamentos.length - 1} linhas). O Excel abre os dois.`);
+});
+
+// ------------------------------------------------------------------ relatório de objetivos
+// Um documento pronto para imprimir ou salvar em PDF, com a leitura da carteira de UMA aba.
+// A regra que organiza tudo é o verbo do objetivo: ele diz se existe um ato a ser obtido.
+// "Obter ..." exige esse ato e entra no percentual de atingimento. "Monitorar", "Conciliar",
+// "Verificar", "Conferir" são de acompanhamento: ali o check significa providência
+// registrada, e eles ficam fora da conta do percentual — senão uma carteira de
+// monitoramento apareceria eternamente como 0% atingida.
+// A lista de verbos vem do banco (item 6.2 do plano: Conferir, Validar, Monitorar,
+// Conciliar, Verificar, Acionar, Encaminhar, Identificar e Aguardar são de
+// acompanhamento; só "Obter" conclui). Em tabela, e não aqui no código, para que a
+// gestora possa acrescentar um verbo sem esperar deploy.
+const VERBOS_RESERVA =
+  /^(monitorar|conciliar|verificar|conferir|validar|acionar|encaminhar|identificar|acompanhar|aguardar|controlar|observar|analisar)\b/;
+const ehAcompanhamento = obj => (window.DGS && DGS.ref.verbos.length)
+  ? DGS.tipoDoObjetivo(obj) === "acompanhamento"
+  : VERBOS_RESERVA.test(semAcento(obj || ""));
+
+const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho",
+               "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+
+// O andamento que melhor representa o dia: primeiro sentença, depois acórdão, depois
+// conclusão; na falta dos três, o mais recente.
+const PESO_TIPO = { sentenca: 3, acordao: 2, conclusao: 1 };
+function movimentoMaisRelevante(movs) {
+  let melhor = null, pesoMelhor = -1;
+  for (const m of movs) {
+    const peso = PESO_TIPO[m.tipo] || 0;
+    if (peso > pesoMelhor
+        || (peso === pesoMelhor && String(m.data) > String(melhor ? melhor.data : ""))) {
+      melhor = m; pesoMelhor = peso;
+    }
+  }
+  return melhor;
+}
+
+// A observação diz que a providência saiu, mas o objetivo continua sem marcação?
+const OBS_SUGERE_FEITO =
+  /pagamento (ja )?(feito|realizado|efetuado)|(ja )?pago\b|valor recebido|alvara (expedido|liberado)|deposito (feito|identificado)|levantado|liberado|baixa (feita|realizada|requerida)|cumprido|quitado|recebido em/;
+
+function dadosObjetivos(aba) {
+  const npus = daAba(aba);
+  const itens = npus.map(n => {
+    const p = BD.processos[n] || {};
+    const movs = movsDe(n);
+    const objetivo = String(p.objetivo || "").replace(/\s+/g, " ").trim();
+    return {
+      npu: n, mascara: mascara(n),
+      fase: String(p.fase || "").trim(),
+      prioridade: p.prioridade || "",
+      objetivo, acompanha: ehAcompanhamento(objetivo), semObjetivo: !objetivo,
+      carteira: p.carteira || "", bloco: p.bloco_codigo || "",
+      origem: p.origem_bloco || "", categoria: p.categoria || "propria",
+      grupo: p.grupo || "",
+      observacao: String(p.observacao || "").replace(/\s+/g, " ").trim(),
+      atingido: p.atingido || "", erro: p.erro || "",
+      juizo: p.juizo || p.orgao_2g || "",
+      movs, ultimo: movs.length ? movs[movs.length - 1] : null,
+      julgamentos: movs.filter(m => m.tipo === "sentenca" || m.tipo === "acordao").length,
+    };
+  });
+  const conclusao = itens.filter(i => !i.acompanha && !i.semObjetivo);
+  const acompanhamento = itens.filter(i => i.acompanha);
+  return {
+    itens, conclusao, acompanhamento,
+    semObjetivo: itens.filter(i => i.semObjetivo),
+    atingidos: conclusao.filter(i => i.atingido),
+    emAberto: conclusao.filter(i => !i.atingido),
+    registrados: acompanhamento.filter(i => i.atingido),
+  };
+}
+
+function relatorioObjetivos(aba) {
+  const d = dadosObjetivos(aba);
+  if (!d.itens.length) {
+    avisar(`A aba de ${aba} está sem processos. Importe a base e consulte antes de gerar o relatório de objetivos.`, true);
+    return;
+  }
+  const { itens, conclusao, acompanhamento, semObjetivo, atingidos, emAberto, registrados } = d;
+  const pct = conclusao.length ? Math.round(atingidos.length * 100 / conclusao.length) : 0;
+  const agora = new Date();
+  const mesAno = `${MESES[agora.getMonth()]} de ${agora.getFullYear()}`;
+  const rotulo = rotuloAba(aba, abas());
+
+  // ---- período coberto pelos andamentos guardados
+  const todasDatas = itens.flatMap(i => i.movs.map(m => soDia(m.data)))
+                          .filter(x => x && paraData(x)).sort();
+  const periodo = todasDatas.length
+    ? (todasDatas[0] === todasDatas[todasDatas.length - 1]
+        ? `Andamentos de ${dd(paraData(todasDatas[0]))}`
+        : `Andamentos consultados de ${dd(paraData(todasDatas[0]))} a ${dd(paraData(todasDatas[todasDatas.length - 1]))}`)
+    : "Nenhum andamento registrado ainda";
+
+  // ---- 2. objetivos agrupados
+  const agrupar = lista => {
+    const mapa = new Map();
+    for (const i of lista) {
+      if (!mapa.has(i.objetivo)) mapa.set(i.objetivo, []);
+      mapa.get(i.objetivo).push(i);
+    }
+    return [...mapa.entries()].sort((a, b) => b[1].length - a[1].length
+      || a[0].localeCompare(b[0], "pt-BR"));
+  };
+  const gruposConclusao = agrupar(conclusao);
+  const gruposAcompanha = agrupar(acompanhamento);
+
+  // ---- 3.1 registros por data
+  const porData = new Map();
+  for (const i of itens.filter(x => x.atingido)) {
+    const dia = soDia(i.atingido);
+    if (!porData.has(dia)) porData.set(dia, { conclusao: 0, acompanha: 0 });
+    porData.get(dia)[i.acompanha ? "acompanha" : "conclusao"]++;
+  }
+  const datasRegistro = [...porData.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  const comObservacao = itens.filter(i => i.atingido && i.observacao)
+    .sort((a, b) => String(a.atingido).localeCompare(String(b.atingido))
+      || a.mascara.localeCompare(b.mascara));
+
+  // ---- 3.2 pontos de conferência
+  const conferir = [];
+  for (const i of itens) {
+    if (i.erro) {
+      conferir.push([i.mascara, i.objetivo,
+        `A consulta ao PJe retornou: “${i.erro}”. Conferir o número do processo.`]);
+    } else if (!i.atingido && i.julgamentos) {
+      conferir.push([i.mascara, i.objetivo,
+        `Houve registro de ${i.julgamentos} julgamento${i.julgamentos > 1 ? "s" : ""} no período; `
+        + `conferir se o objetivo já foi alcançado.`]);
+    } else if (!i.atingido && i.observacao && OBS_SUGERE_FEITO.test(semAcento(i.observacao))) {
+      conferir.push([i.mascara, i.objetivo,
+        `A observação registra “${i.observacao}”, mas o item segue em aberto; `
+        + `conferir se já cabe o registro.`]);
+    }
+  }
+  const semAndamento = itens.filter(i => !i.movs.length && !i.erro);
+  const semAndamentoAlta = semAndamento.filter(i => i.prioridade === "Alta").length;
+
+  // ---- 3.3 movimentação nos dois dias mais recentes com andamento
+  const diasComMov = [...new Set(todasDatas)].sort().slice(-2);
+  const recentes = [];
+  for (const i of itens) {
+    const doDia = i.movs.filter(m => diasComMov.includes(soDia(m.data)));
+    if (!doDia.length) continue;
+    const m = movimentoMaisRelevante(doDia);
+    const extra = doDia.length - 1;
+    const efeito = i.atingido
+      ? (i.acompanha ? `Providência registrada em ${dd(paraData(i.atingido))}`
+                     : `Objetivo atingido em ${dd(paraData(i.atingido))}`)
+      : (i.acompanha ? "Segue em acompanhamento"
+                     : (i.semObjetivo ? "Sem objetivo registrado" : "Objetivo segue em aberto"));
+    recentes.push({
+      ordem: String(m.data),
+      linha: [i.mascara, dd(paraData(m.data)),
+              m.texto + (extra ? ` (+${extra} andamento${extra > 1 ? "s" : ""})` : ""),
+              i.objetivo, efeito],
+    });
+  }
+  recentes.sort((a, b) => a.ordem.localeCompare(b.ordem) || a.linha[0].localeCompare(b.linha[0]));
+
+  // ---- 3.5 distribuição por origem (item 3.1: a etiqueta acompanha o processo)
+  const porOrigem = new Map();
+  for (const i of itens) {
+    const chave = i.bloco ? `${i.bloco} — ${i.origem || "origem própria"}`
+                          : (i.categoria === "propria" ? "Carteira própria" : "Sem bloco");
+    if (!porOrigem.has(chave)) porOrigem.set(chave, []);
+    porOrigem.get(chave).push(i);
+  }
+  const linhasOrigem = [...porOrigem.entries()]
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(([nome, l]) => {
+      const c = l.filter(x => !x.acompanha && !x.semObjetivo);
+      const at = c.filter(x => x.atingido).length;
+      return [nome, l.length, l.filter(x => x.categoria === "tutelada").length,
+              c.length, at, c.length ? `${Math.round(at * 100 / c.length)}%` : "—"];
+    });
+
+  // ---- 3.4 distribuição por prioridade
+  const linhasPri = [...PRIORIDADES, ""].map(pri => {
+    const naFaixa = itens.filter(i => (i.prioridade || "") === pri);
+    if (!naFaixa.length) return null;
+    const c = naFaixa.filter(i => !i.acompanha && !i.semObjetivo);
+    const at = c.filter(i => i.atingido).length;
+    return [pri || "Sem prioridade", naFaixa.length, c.length, at, c.length - at,
+            c.length ? `${Math.round(at * 100 / c.length)}%` : "—",
+            naFaixa.filter(i => !i.movs.length && !i.erro).length];
+  }).filter(Boolean);
+
+  // ------------------------------------------------------------------- montagem do HTML
+  // Uma célula é um texto ou { t: texto, c: classe } quando precisa de cor própria.
+  const tab = (cabs, linhas, op) => {
+    if (!linhas.length) return "";
+    const larg = (op && op.larguras) || [], cls = (op && op.classes) || [];
+    const cel = (tag, v, k) => {
+      const t = (v && typeof v === "object") ? v.t : v;
+      const c = [cls[k], v && typeof v === "object" ? v.c : ""].filter(Boolean).join(" ");
+      return `<${tag}${c ? ` class="${c}"` : ""}${larg[k] ? ` style="width:${larg[k]}"` : ""}>`
+           + `${esc(String(t ?? ""))}</${tag}>`;
+    };
+    const total = op && op.total;
+    return `<table class="dados"><thead><tr>${cabs.map((c, k) => cel("th", c, k)).join("")}</tr></thead><tbody>`
+      + linhas.map(l => `<tr>${l.map((v, k) => cel("td", v, k)).join("")}</tr>`).join("")
+      + (total ? `<tr class="total">${total.map((v, k) => cel("td", v, k)).join("")}</tr>` : "")
+      + "</tbody></table>";
+  };
+
+  // O último andamento em branco não é um vazio qualquer: significa que o processo não se
+  // mexeu no período. O relatório diz isso em vez de deixar a célula muda.
+  const ultimoTexto = i => i.ultimo
+    ? `${dd(paraData(i.ultimo.data))} · ${i.ultimo.texto}`
+    : { t: "Sem andamento no período", c: "mudo" };
+  const situacaoDe = i => i.acompanha
+    ? (i.atingido ? { t: `Registrado em ${dd(paraData(i.atingido))}`, c: "feito" }
+                  : { t: "Em acompanhamento", c: "aberto" })
+    : (i.atingido ? { t: `Atingido em ${dd(paraData(i.atingido))}`, c: "feito" }
+                  : { t: "Em aberto", c: "aberto" });
+
+  // ---- 4. relação por objetivo: prioridade primeiro, pendentes antes dos resolvidos
+  const ordenarGrupo = lista => [...lista].sort((a, b) =>
+    (ORDEM_PRI[a.prioridade] ?? 3) - (ORDEM_PRI[b.prioridade] ?? 3)
+    || (a.atingido ? 1 : 0) - (b.atingido ? 1 : 0)
+    || a.mascara.localeCompare(b.mascara));
+
+  const L4 = ["13%", "16%", "8%", "11%", "33%", "19%"];
+  const grupo = (titulo, lista, acompanha) =>
+    `<section class="grupo"><h3>${esc(titulo)} (${lista.length})</h3>`
+    + tab(["Processo (NPU)", "Fase", "Prioridade", acompanha ? "Registro" : "Situação",
+           "Último andamento", "Observação"],
+          ordenarGrupo(lista).map(i => [{ t: i.mascara, c: "npu" }, i.fase, i.prioridade,
+                                        situacaoDe(i), ultimoTexto(i), i.observacao]),
+          { larguras: L4 })
+    + "</section>";
+
+  const secao4 = [
+    ...gruposConclusao.map(([obj, l]) => grupo(obj, l, false)),
+    ...gruposAcompanha.map(([obj, l]) => grupo(obj, l, true)),
+    ...(semObjetivo.length ? [grupo("Sem objetivo registrado na planilha", semObjetivo, false)] : []),
+  ].join("");
+
+  const resumoTexto = `A carteira reúne ${itens.length} processo${itens.length === 1 ? "" : "s"}, `
+    + `distribuído${itens.length === 1 ? "" : "s"} entre as prioridades `
+    + PRIORIDADES.map(p => `${p} (${itens.filter(i => i.prioridade === p).length})`).join(", ")
+    + (itens.filter(i => !i.prioridade).length
+        ? `, além de ${itens.filter(i => !i.prioridade).length} sem prioridade atribuída` : "")
+    + ". "
+    + (conclusao.length
+        ? `Dos ${conclusao.length} objetivos de conclusão, isto é, aqueles que dependem da obtenção `
+          + `de um ato do juízo ou do tribunal, ${atingidos.length} `
+          + `${atingidos.length === 1 ? "foi atingido" : "foram atingidos"} (${pct}%) e `
+          + `${emAberto.length} ${emAberto.length === 1 ? "segue" : "seguem"} em aberto. `
+        : "Nenhum objetivo desta carteira depende da obtenção de um ato do juízo. ")
+    + (acompanhamento.length
+        ? `Os outros ${acompanhamento.length} itens são de conciliação, conferência, verificação ou `
+          + `monitoramento: por não exigirem conclusão, não entram no cálculo do percentual de `
+          + `atingimento, e neles o registro significa providência tomada. `
+          + (registrados.length
+              ? `${registrados.length} ${registrados.length === 1 ? "deles já teve" : "deles já tiveram"} `
+                + `a providência registrada. `
+              : "Nenhum deles teve a providência registrada até agora. ")
+        : "")
+    + (semObjetivo.length
+        ? `${semObjetivo.length} processo${semObjetivo.length === 1 ? "" : "s"} está sem objetivo `
+          + `registrado na planilha e ficou fora das duas contas.` : "");
+
+  const pe = `Relatório de objetivos · Carteira ${rotulo} · `
+           + `${mesAno.charAt(0).toUpperCase()}${mesAno.slice(1)}`;
+  // o rodapé entra dentro de uma string CSS: tira o que poderia fechar a regra ou a tag
+  const aspas = t => String(t).replace(/[<>]/g, "").replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+
+  const doc = `<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relatório de objetivos · Carteira ${esc(rotulo)} · ${esc(mesAno)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gelasio:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  /* A paleta é a do relatório que o setor já usa: tinta quase preta, creme, ouro e um
+     verde só para o que foi alcançado. */
+  :root {
+    --tinta: #22222e; --creme: #f8f5ee; --bege: #f1ece2; --linha: #e0d9cb;
+    --ouro: #a8762a; --ouro-claro: #d4a64a; --ouro-status: #c0782a;
+    --verde: #3d7a4a; --mudo: #9a9aa0;
+    --serifa: "Gelasio", Georgia, "Liberation Serif", "Times New Roman", serif;
+    --sans: "Carlito", Calibri, "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  /* O item 4 vira paisagem, como no modelo: seis colunas de texto não cabem em retrato
+     sem espremer o andamento, que é justamente o que se quer ler. */
+  @page { size: A4 portrait; margin: 16mm 13mm 14mm;
+    @bottom-left { content: "${aspas(pe)}"; font-family: var(--sans); font-size: 7.5pt; color: #9a9aa0; }
+    @bottom-right { content: "Página " counter(page) " de " counter(pages);
+                    font-family: var(--sans); font-size: 7.5pt; color: #9a9aa0; } }
+  @page paisagem { size: A4 landscape; margin: 14mm 14mm 13mm;
+    @bottom-left { content: "${aspas(pe)}"; font-family: var(--sans); font-size: 7.5pt; color: #9a9aa0; }
+    @bottom-right { content: "Página " counter(page) " de " counter(pages);
+                    font-family: var(--sans); font-size: 7.5pt; color: #9a9aa0; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #fff; color: var(--tinta); font: 9.5pt/1.55 var(--sans);
+         -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* O cabeçalho corrido mora no <thead> do invólucro: é assim que ele se repete em toda
+     página impressa sem invadir o texto. */
+  table.folha { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  table.folha > thead > tr > td, table.folha > tbody > tr > td { padding: 0; border: 0; }
+  table.folha > thead > tr > td { padding-bottom: 5mm; }
+  .corrida { display: flex; justify-content: space-between; align-items: baseline; gap: 8mm;
+             font-size: 7.5pt; color: var(--mudo); border-bottom: .8pt solid var(--ouro);
+             padding-bottom: 1.8mm; }
+  .corrida b { color: var(--tinta); font-weight: 700; letter-spacing: .06em; font-size: 7.5pt; }
+  .paisagem { page: paisagem; break-before: page; }
+
+  h1 { font-family: var(--serifa); font-size: 26pt; font-weight: 700; margin: 0 0 3mm;
+       letter-spacing: -.01em; line-height: 1.1; }
+  h2 { font-family: var(--serifa); font-size: 16pt; font-weight: 700; margin: 10mm 0 4mm;
+       padding-bottom: 2mm; border-bottom: .8pt solid var(--linha);
+       break-after: avoid; page-break-after: avoid; }
+  h3 { font-family: var(--serifa); font-size: 11.5pt; font-weight: 700; color: var(--ouro);
+       margin: 7mm 0 2.5mm; break-after: avoid; page-break-after: avoid; }
+  .faixa { font-size: 8pt; letter-spacing: .13em; text-transform: uppercase; color: var(--ouro);
+           font-weight: 700; margin: 7mm 0 2mm; }
+  .sub { font-size: 8.5pt; color: var(--mudo); margin: 0 0 2mm; line-height: 1.5; }
+  p { margin: 0 0 3.5mm; text-align: justify; }
+
+  /* Os indicadores: o primeiro é o tamanho da carteira e vem em negativo, como no modelo. */
+  .kpis { display: flex; gap: 3mm; margin: 2mm 0 6mm; text-align: center; }
+  .kpi { flex: 1; padding: 5mm 2mm; background: var(--bege); }
+  .kpi b { display: block; font-family: var(--serifa); font-size: 21pt; font-weight: 700;
+           line-height: 1.1; }
+  .kpi span { display: block; font-size: 7.5pt; color: #55555f; margin-top: 2mm; line-height: 1.35; }
+  .kpi.escuro { background: var(--tinta); }
+  .kpi.escuro b { color: var(--ouro-claro); }
+  .kpi.escuro span { color: #cfcfd6; }
+
+  table.dados { width: 100%; border-collapse: collapse; margin: 0 0 4mm; font-size: 8.5pt;
+                table-layout: fixed; }
+  table.dados th, table.dados td { padding: 2.4mm 2.6mm; text-align: left; vertical-align: top;
+                                   border: .5pt solid var(--linha); line-height: 1.45; }
+  table.dados thead th { background: var(--tinta); color: #fff; font-weight: 600; font-size: 8pt;
+                         border-color: var(--tinta); padding-top: 2mm; padding-bottom: 2mm; }
+  table.dados tbody tr:nth-child(even) { background: var(--creme); }
+  table.dados tr.total td { font-weight: 700; background: var(--bege); }
+  thead { display: table-header-group; }
+  table.dados tr { break-inside: avoid; page-break-inside: avoid; }
+  table.dados .num { text-align: center; font-variant-numeric: tabular-nums; }
+  table.dados .npu { white-space: nowrap; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .aberto { color: var(--ouro-status); font-weight: 700; }
+  .feito { color: var(--verde); font-weight: 700; }
+  .mudo { color: var(--mudo); }
+  td, th { overflow-wrap: break-word; }
+
+  section.grupo { margin-bottom: 6mm; }
+  ul { margin: 0 0 4mm; padding-left: 5mm; }
+  li { margin-bottom: 1.8mm; }
+
+  .barra { background: var(--tinta); color: #fff; padding: 3mm 6mm; display: flex; gap: 5mm;
+           align-items: center; font-size: 8.5pt; line-height: 1.4; }
+  .barra button { font: inherit; font-weight: 700; padding: 2.2mm 6mm; border: 0;
+                  border-radius: 1.5mm; background: var(--ouro); color: #fff; cursor: pointer;
+                  white-space: nowrap; }
+  /* Na tela a folha vira uma página branca sobre fundo neutro. O recuo vai nas células,
+     porque padding numa tabela com border-collapse é ignorado. */
+  @media screen {
+    body { background: #e9e6df; padding-bottom: 10mm; }
+    table.folha { max-width: 196mm; margin: 7mm auto; background: #fff;
+                  box-shadow: 0 1px 10px rgba(34, 34, 46, .13); }
+    table.folha.paisagem { max-width: 280mm; }
+    table.folha > thead > tr > td { padding: 10mm 10mm 5mm; }
+    table.folha > tbody > tr > td { padding: 0 10mm 10mm; }
+  }
+  @media print { .barra { display: none; } }
+</style></head>
+<body>
+<div class="barra">
+  <button onclick="window.print()">Imprimir ou salvar em PDF</button>
+  <span>No diálogo de impressão escolha “Salvar como PDF”, deixe a escala em 100% e marque
+        “Gráficos de plano de fundo” para as cores saírem.</span>
+</div>
+
+<table class="folha"><thead><tr><td>
+  <div class="corrida"><b>GUIMARÃES &amp; LACERDA ADVOGADOS</b><span>Setor de Diligências</span></div>
+</td></tr></thead><tbody><tr><td>
+
+  <p class="faixa">Relatório de objetivos · ${esc(mesAno)}</p>
+  <h1>Carteira ${esc(rotulo)}</h1>
+  <p class="sub">Situação em ${esc(dd(agora))} às ${esc(soHora(carimbarAgora()))} ·
+     Base: DiliGLA, aba “${esc(aba)}” · ${esc(periodo)}</p>
+
+  <h2>1. Resumo</h2>
+  <div class="kpis">
+    <div class="kpi escuro"><b>${itens.length}</b><span>processos na carteira</span></div>
+    <div class="kpi"><b>${atingidos.length} de ${conclusao.length}</b>
+      <span>objetivos de conclusão atingidos (${pct}%)</span></div>
+    <div class="kpi"><b>${emAberto.length}</b><span>objetivos de conclusão em aberto</span></div>
+    <div class="kpi"><b>${acompanhamento.length}</b><span>itens de acompanhamento (sem conclusão exigida)</span></div>
+  </div>
+  <p>${esc(resumoTexto)}</p>
+
+  <h2>2. Objetivos agrupados</h2>
+  <h3>2.1 Objetivos de conclusão</h3>
+  ${gruposConclusao.length
+    ? tab(["Objetivo", "Total", "Atingidos", "Em aberto", "Atingimento"],
+          gruposConclusao.map(([obj, l]) => {
+            const at = l.filter(i => i.atingido).length;
+            return [obj, l.length, at, l.length - at, `${Math.round(at * 100 / l.length)}%`];
+          }),
+          { larguras: ["44%", "14%", "14%", "14%", "14%"],
+            classes: ["", "num", "num", "num", "num"],
+            total: ["Total", conclusao.length, atingidos.length, emAberto.length, `${pct}%`] })
+    : "<p>Nenhum objetivo desta carteira depende da obtenção de um ato do juízo.</p>"}
+
+  <h3>2.2 Objetivos de acompanhamento (conciliar, conferir, verificar e monitorar)</h3>
+  ${gruposAcompanha.length
+    ? tab(["Objetivo", "Total", "Registrados", "Em acompanhamento", "Conclusão"],
+          gruposAcompanha.map(([obj, l]) => {
+            const r = l.filter(i => i.atingido).length;
+            return [obj, l.length, r, l.length - r, "não exigida"];
+          }),
+          { larguras: ["40%", "12%", "15%", "18%", "15%"],
+            classes: ["", "num", "num", "num", "num"],
+            total: ["Total", acompanhamento.length, registrados.length,
+                    acompanhamento.length - registrados.length, ""] })
+      + `<p>Nesses itens o processo permanece em acompanhamento até que o ato correspondente —
+         publicação, intimação, decurso de prazo ou retorno após manifestação — permita
+         registrar a providência. O registro não encerra o processo: apenas marca que a
+         diligência foi cumprida.</p>`
+    : "<p>Nenhum item de acompanhamento nesta carteira.</p>"}
+
+  <h2>3. Observações</h2>
+  <h3>3.1 Objetivos atingidos</h3>
+  <p>${esc(`Foram registrados ${atingidos.length} objetivo${atingidos.length === 1 ? "" : "s"} de `
+    + `conclusão atingido${atingidos.length === 1 ? "" : "s"} e ${registrados.length} `
+    + `${registrados.length === 1 ? "item" : "itens"} de acompanhamento`
+    + `${datasRegistro.length ? ", distribuídos pelas datas de registro abaixo." : "."}`)}</p>
+  ${datasRegistro.length
+    ? tab(["Data do registro", "Objetivos de conclusão", "Itens de acompanhamento", "Total"],
+          datasRegistro.map(([dia, v]) =>
+            [dd(paraData(dia)), v.conclusao, v.acompanha, v.conclusao + v.acompanha]),
+          { larguras: ["25%", "25%", "25%", "25%"],
+            classes: ["num", "num", "num", "num"],
+            total: ["Total", atingidos.length, registrados.length,
+                    atingidos.length + registrados.length] })
+    : "<p>Nenhum objetivo foi marcado como atingido até agora.</p>"}
+  ${comObservacao.length
+    ? `<p>Objetivos atingidos com observação registrada:</p><ul>`
+      + comObservacao.map(i => `<li><b>${esc(i.mascara)}</b> (${esc(i.objetivo || "sem objetivo")}, `
+          + `${i.acompanha ? "registrado" : "atingido"} em ${esc(ddhh(i.atingido))}): `
+          + `${esc(i.observacao)}</li>`).join("")
+      + `</ul><p>Os demais registros não trazem observação; a relação completa, com o último
+         andamento de cada processo, está no item 4.</p>`
+    : ""}
+
+  <h3>3.2 Casos em aberto e impeditivos</h3>
+  <p>${esc(`${emAberto.length
+      ? `Dos ${emAberto.length} objetivos de conclusão em aberto, `
+        + PRIORIDADES.map(p => `${emAberto.filter(i => i.prioridade === p).length} `
+            + `${emAberto.filter(i => i.prioridade === p).length === 1 ? "é" : "são"} de prioridade ${p}`).join(", ")
+        + ". "
+      : "Não há objetivos de conclusão em aberto nesta carteira. "}`
+    + `${semAndamento.length} processo${semAndamento.length === 1 ? "" : "s"} `
+    + `${semAndamento.length === 1 ? "não teve" : "não tiveram"} nenhum andamento no período consultado`
+    + `${semAndamentoAlta ? `, dos quais ${semAndamentoAlta} de prioridade Alta` : ""}.`)}</p>
+  ${conferir.length
+    ? `<p>Os registros abaixo pedem conferência antes da próxima atualização:</p>`
+      + tab(["Processo (NPU)", "Objetivo", "Ponto de conferência"],
+            conferir.map(l => [{ t: l[0], c: "npu" }, l[1], l[2]]),
+            { larguras: ["20%", "26%", "54%"] })
+    : `<p>Nenhum registro desta carteira pede conferência: não há falha de consulta, nem
+       objetivo em aberto com julgamento no período ou com observação que sugira conclusão.</p>`}
+
+  <h3>3.3 ${diasComMov.length === 2
+      ? `Processos com movimentação nos dias ${esc(dd(paraData(diasComMov[0])))} e ${esc(dd(paraData(diasComMov[1])))}`
+      : diasComMov.length === 1
+        ? `Processos com movimentação em ${esc(dd(paraData(diasComMov[0])))}`
+        : "Processos com movimentação recente"}</h3>
+  ${recentes.length
+    ? `<p>${esc(`${recentes.length} processo${recentes.length === 1 ? "" : "s"} `
+        + `${recentes.length === 1 ? "teve" : "tiveram"} andamento registrado `
+        + `${diasComMov.length === 2 ? "nesses dois dias" : "nesse dia"}. Quando há mais de um `
+        + `andamento no mesmo processo, a tabela mostra o mais relevante — sentença, acórdão ou `
+        + `conclusão — ou, na falta deles, o mais recente, com a contagem dos demais.`)}</p>`
+      + tab(["Processo (NPU)", "Data", "Andamento", "Objetivo", "Efeito no objetivo"],
+            recentes.map(r => [{ t: r.linha[0], c: "npu" }, r.linha[1], r.linha[2], r.linha[3],
+                               { t: r.linha[4], c: /atingido|registrada/.test(r.linha[4]) ? "feito" : "aberto" }]),
+            { larguras: ["20%", "11%", "25%", "24%", "20%"], classes: ["", "num", "", "", ""] })
+    : "<p>Nenhum andamento registrado nos dias mais recentes.</p>"}
+
+  <h3>3.4 Distribuição por prioridade</h3>
+  ${tab(["Prioridade", "Processos", "Objetivos de conclusão", "Atingidos", "Em aberto",
+         "Atingimento", "Sem andamento no período"],
+        linhasPri,
+        { larguras: ["16%", "14%", "14%", "14%", "14%", "14%", "14%"],
+          classes: ["", "num", "num", "num", "num", "num", "num"],
+          total: ["Total", itens.length, conclusao.length, atingidos.length, emAberto.length,
+                  conclusao.length ? `${pct}%` : "—", semAndamento.length] })}
+
+</td></tr></tbody></table>
+
+<table class="folha paisagem"><thead><tr><td>
+  <div class="corrida"><b>GUIMARÃES &amp; LACERDA ADVOGADOS</b><span>Setor de Diligências</span></div>
+</td></tr></thead><tbody><tr><td>
+  <h3>3.5 Distribuição por origem</h3>
+  <p>A etiqueta da carteira de origem é mantida em todos os controles e não muda quando o
+     processo troca de mão. É por ela que a devolução ao titular definitivo será feita.</p>
+  ${tab(["Origem", "Processos", "Tutelados", "Objetivos de conclusão", "Atingidos", "Atingimento"],
+        linhasOrigem,
+        { larguras: ["34%", "13%", "13%", "15%", "12%", "13%"],
+          classes: ["", "num", "num", "num", "num", "num"],
+          total: ["Total", itens.length, itens.filter(i => i.categoria === "tutelada").length,
+                  conclusao.length, atingidos.length, conclusao.length ? `${pct}%` : "—"] })}
+
+  <h2>4. Relação dos processos por objetivo</h2>
+  <p>Ordenados por prioridade (Alta, Média e Baixa) e, dentro dela, com os pendentes primeiro.
+     A observação reproduz o registro da planilha; o último andamento vem da consulta ao PJe.</p>
+  ${secao4}
+</td></tr></tbody></table>
+</body></html>`;
+
+  // Abre numa aba nova para a pessoa imprimir ou salvar em PDF. Se o navegador bloquear
+  // a aba, o relatório é baixado como arquivo em vez de simplesmente não acontecer nada.
+  const nome = `relatorio-objetivos-${semAcento(rotulo).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`
+    + `-${agora.getFullYear()}-${z2(agora.getMonth() + 1)}-${z2(agora.getDate())}.html`;
+  let janela = null;
+  try { janela = window.open("", "_blank"); } catch { janela = null; }
+  if (janela && janela.document) {
+    janela.document.open();
+    janela.document.write(doc);
+    janela.document.close();
+    avisar(`Relatório de objetivos da carteira ${rotulo} aberto numa aba nova — use o botão `
+         + `“Imprimir ou salvar em PDF” no topo dela.`);
+  } else {
+    const url = URL.createObjectURL(new Blob([doc], { type: "text/html;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = nome;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    avisar(`O navegador bloqueou a aba nova, então o relatório foi baixado como ${nome}. `
+         + `Abra o arquivo e use o botão de imprimir que aparece no topo.`);
+  }
+}
+
+$("#relatorio-objetivos").addEventListener("click", () => {
+  try {
+    relatorioObjetivos(abaAtiva);
+  } catch (e) {
+    console.error(e);
+    avisar(`Não foi possível montar o relatório de objetivos: ${e && e.message ? e.message : e}. `
+         + `Me mande esta mensagem.`, true);
+  }
+});
+
+// ------------------------------------------- passagem a partir do processo
+// A lista oferece os quinze atos do item 5. Quando o andamento já traz o ato,
+// ele vem pré-escolhido — mas quem decide continua sendo a pessoa.
+function montarGatilhos(p) {
+  const sel = $("#g-gatilho");
+  const sugerido = (DGS.sugestoes(BD).find(x => x.npu === p.npu) || {}).gatilho;
+  sel.innerHTML = `<option value="">— escolha o ato obtido —</option>`
+    + DGS.ref.gatilhos.map(g => `<option value="${esc(g.codigo)}"${
+        sugerido && sugerido.codigo === g.codigo ? " selected" : ""}>${esc(g.ato)}</option>`).join("");
+  sel.disabled = !!p.transferencia_aberta || !DG.escreve();
+  pintarDestino(p);
+}
+
+function pintarDestino(p) {
+  const codigo = $("#g-gatilho").value;
+  const nota = $("#g-destino"), botao = $("#g-propor");
+  if (p.transferencia_aberta) {
+    nota.textContent = "Já existe uma passagem deste processo aguardando aceite.";
+    botao.hidden = true; return;
+  }
+  if (!codigo) { nota.textContent = ""; botao.hidden = true; return; }
+  const g = DGS.ref.gatilhos.find(x => x.codigo === codigo);
+  if (g.exige_valor && p.valor == null) {
+    nota.textContent = "Este ato depende da faixa de valor, e o processo está sem valor informado.";
+    botao.hidden = true; return;
+  }
+  const d = DGS.destinoDe(g, p);
+  nota.textContent = `Sai de ${p.resp} e vai para ${d.responsavel} · ${d.carteira}`
+    + (d.bloco && d.bloco !== "—" ? ` · bloco ${d.bloco}` : "")
+    + ". A passagem só se completa com o aceite de quem recebe.";
+  botao.hidden = false;
+}
+
+$("#g-gatilho").addEventListener("change", () => {
+  const p = BD.processos[gavetaNpu]; if (p) pintarDestino(p);
+});
+
+$("#g-propor").addEventListener("click", async () => {
+  const p = BD.processos[gavetaNpu]; if (!p) return;
+  const codigo = $("#g-gatilho").value; if (!codigo) return;
+  $("#g-propor").disabled = true;
+  try {
+    await proporPassagem(p.npu, codigo, null);
+    fecharGaveta();
+    await carregar();
+    desenhar();
+  } catch (e) { avisar(e.message, true); }
+  finally { $("#g-propor").disabled = false; }
+});
+
+// ==================================================================== telas
+// A grade de carteiras é a tela de sempre. As três novas — passagens, painel
+// do setor e equipe — são irmãs dela e trocam pelo menu do topo.
+let telaAtiva = "carteiras";
+const TELAS = ["carteiras", "passagens", "painel", "equipe"];
+
+function mostrarTela(nome) {
+  telaAtiva = nome;
+  for (const t of TELAS) {
+    const el = $(`#tela-${t}`);
+    if (el) el.hidden = t !== nome;
+  }
+  $("#abas").hidden = nome !== "carteiras";
+  for (const b of $$("#navegacao button")) b.setAttribute("aria-current", String(b.dataset.tela === nome));
+  if (nome === "passagens") desenharPassagens();
+  if (nome === "painel")    desenharPainel();
+  if (nome === "equipe")    desenharEquipe();
+}
+
+$("#navegacao").addEventListener("click", e => {
+  const b = e.target.closest("button[data-tela]");
+  if (b) mostrarTela(b.dataset.tela);
+});
+
+// ============================================================ porta de entrada
+let modoPorta = "entrar";
+const erroPorta = t => { const e = $("#porta-erro"); e.textContent = t || ""; e.hidden = !t; };
+
+function ajustarPorta() {
+  const criar = modoPorta === "criar";
+  $("#porta-titulo").textContent = criar ? "Criar conta" : "Entrar";
+  $("#porta-sub").textContent = criar
+    ? "Depois de criar, peça à gestora para liberar o seu acesso. Até lá você só enxerga."
+    : "Use o e-mail do escritório.";
+  $("#campo-nome").hidden = !criar;
+  $("#porta-modo").textContent = criar ? "Já tenho conta" : "Criar conta";
+  $("#porta-entrar").textContent = criar ? "Criar conta" : "Entrar";
+  $("#porta-senha").autocomplete = criar ? "new-password" : "current-password";
+  erroPorta("");
+}
+
+$("#porta-modo").addEventListener("click", () => {
+  modoPorta = modoPorta === "entrar" ? "criar" : "entrar";
+  ajustarPorta();
+});
+
+$("#porta-esqueci").addEventListener("click", async () => {
+  const email = $("#porta-email").value.trim();
+  if (!email) { erroPorta("Escreva o e-mail primeiro."); $("#porta-email").focus(); return; }
+  try {
+    await DG.recuperarSenha(email);
+    erroPorta("");
+    $("#porta-sub").textContent = `Se existir conta para ${email}, o link de troca de senha chegou lá.`;
+  } catch (e) { erroPorta(e.message); }
+});
+
+async function tentarEntrar() {
+  const email = $("#porta-email").value.trim();
+  const senha = $("#porta-senha").value;
+  const nome  = $("#porta-nome").value.trim();
+  if (!email || !senha) { erroPorta("Preencha e-mail e senha."); return; }
+  if (modoPorta === "criar" && !nome) { erroPorta("Escreva o seu nome completo."); return; }
+  if (modoPorta === "criar" && senha.length < 8) {
+    erroPorta("A senha precisa de pelo menos 8 caracteres."); return;
+  }
+  $("#porta-entrar").disabled = true;
+  erroPorta("");
+  try {
+    if (modoPorta === "criar") {
+      const r = await DG.criarConta(email, senha, nome);
+      if (!DG.logado) {
+        $("#porta-sub").textContent = "Conta criada. Confirme o e-mail e depois entre por aqui.";
+        modoPorta = "entrar"; ajustarPorta();
+        return;
+      }
+    } else {
+      await DG.entrar(email, senha);
+    }
+    $("#porta-senha").value = "";
+    await abrirSistema();
+  } catch (e) {
+    erroPorta(e.message);
+  } finally {
+    $("#porta-entrar").disabled = false;
+  }
+}
+$("#porta-entrar").addEventListener("click", tentarEntrar);
+for (const id of ["#porta-email", "#porta-senha", "#porta-nome"]) {
+  $(id).addEventListener("keydown", e => { if (e.key === "Enter") tentarEntrar(); });
+}
+
+$("#sair").addEventListener("click", () => {
+  if (DG.pendentes && !confirm(`Ainda há ${DG.pendentes} alteração(ões) por enviar. Sair mesmo assim?`)) return;
+  DG.sair();
+  location.reload();
+});
+
+// ====================================================== passagens de carteira
+function cartaoPassagem(t, modo) {
+  const p = BD.processos[(t.processo && t.processo.npu) || ""] || {};
+  const npu = (t.processo && t.processo.npu) || "";
+  const de  = nomeDeMembro(t.de_responsavel), para = nomeDeMembro(t.para_responsavel);
+  const quando = t.criada_em ? ddhh(t.criada_em) : "";
+  const botoes = modo === "recebida"
+    ? `<button class="primario" data-aceita="${t.id}">Aceitar</button>
+       <button class="secundario" data-recusa="${t.id}">Recusar</button>`
+    : (t.status === "proposta" && (DG.gestora() || t.de_responsavel === DG.meuId())
+        ? `<button class="secundario" data-cancela="${t.id}">Cancelar</button>` : "");
+  const situacao = { proposta: "aguardando aceite", aceita: "aceita",
+                     recusada: "recusada", cancelada: "cancelada" }[t.status] || t.status;
+  return `<div class="cartao">
+    <h3>${esc(t.ato)}</h3>
+    <p class="nota" style="margin:0">
+      ${npu ? `<b class="mono">${esc(mascara(npu))}</b> · ` : ""}${esc(p.objetivo || "")}</p>
+    <div class="de-para">
+      <span class="caixa-de">${esc(de)}</span>
+      <span class="seta">→</span>
+      <span class="caixa-de">${esc(para)}</span>
+      ${t.valor_remanescente != null
+        ? `<span class="nota">remanescente ${esc(dinheiro(t.valor_remanescente))}</span>` : ""}
+      ${t.prazo ? `<span class="nota">prazo ${esc(dd(paraData(t.prazo)))}</span>` : ""}
+    </div>
+    <p class="nota" style="margin:0">${esc(situacao)}${quando ? ` · proposta em ${esc(quando)}` : ""}
+      ${t.motivo ? ` · ${esc(t.motivo)}` : ""}</p>
+    ${botoes ? `<div class="linha-acoes" style="margin-top:11px">${botoes}</div>` : ""}
+  </div>`;
+}
+
+const nomeDeMembro = id => {
+  const m = DGS.ref.membros.find(x => x.id === id);
+  return m ? m.nome : "—";
+};
+const dinheiro = v => v == null ? "" :
+  Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+function desenharPassagens() {
+  const meu = DG.meuId();
+  const ts = DGS.transferencias;
+  const recebidas = ts.filter(t => t.status === "proposta" && t.para_responsavel === meu);
+  const enviadas  = ts.filter(t => t.de_responsavel === meu || (DG.gestora() && t.criada_por === meu))
+                      .slice(0, 40);
+
+  $("#passagens-recebidas").innerHTML = recebidas.length
+    ? recebidas.map(t => cartaoPassagem(t, "recebida")).join("")
+    : `<p class="vazio-tela">Nada aguardando o seu aceite.</p>`;
+
+  const sug = DGS.sugestoes(BD, DG.gestora() ? null : (DG.eu && DG.eu.nome));
+  $("#passagens-sugeridas").innerHTML = sug.length ? sug.map(s => {
+    const d = DGS.destinoDe(s.gatilho, s.processo);
+    return `<div class="cartao">
+      <h3>${esc(s.gatilho.ato)}</h3>
+      <p class="nota" style="margin:0"><b class="mono">${esc(mascara(s.npu))}</b> ·
+        ${esc(s.processo.objetivo || "sem objetivo")}</p>
+      <p class="nota" style="margin:6px 0 0">Andamento de ${esc(dd(paraData(s.movimento.data)))}:
+        ${esc(s.movimento.texto)}</p>
+      <div class="de-para">
+        <span class="caixa-de">${esc(s.processo.resp)}</span><span class="seta">→</span>
+        <span class="caixa-de">${esc(d.responsavel)}</span>
+        <span class="nota">${esc(d.carteira)}${d.bloco !== "—" ? " · " + esc(d.bloco) : ""}</span>
+      </div>
+      <div class="linha-acoes" style="margin-top:11px">
+        <button class="primario contorno" data-propoe="${esc(s.npu)}"
+                data-gatilho="${esc(s.gatilho.codigo)}"
+                data-mov="${esc(s.movimento.chave)}">Propor passagem</button>
+        <button class="secundario" data-abre="${esc(s.npu)}">Ver o processo</button>
+      </div></div>`;
+  }).join("") : `<p class="vazio-tela">Nenhum ato da tabela do item 5 reconhecido nos andamentos captados.</p>`;
+
+  $("#passagens-enviadas").innerHTML = enviadas.length
+    ? enviadas.map(t => cartaoPassagem(t, "enviada")).join("")
+    : `<p class="vazio-tela">Você ainda não propôs nenhuma passagem.</p>`;
+
+  if (DG.gestora()) {
+    const setor = ts.filter(t => t.status === "proposta" && t.para_responsavel !== meu);
+    $("#bloco-setor").hidden = false;
+    $("#passagens-setor").innerHTML = setor.length
+      ? setor.map(t => cartaoPassagem(t, "recebida")).join("")
+      : `<p class="vazio-tela">Nenhuma passagem pendente em outras carteiras.</p>`;
+  } else {
+    $("#bloco-setor").hidden = true;
+  }
+
+  const n = recebidas.length;
+  const chip = $("#conta-passagens");
+  chip.textContent = n; chip.hidden = !n;
+}
+
+$("#tela-passagens").addEventListener("click", async e => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  try {
+    if (b.dataset.aceita)  await decidirPassagem(+b.dataset.aceita, true);
+    else if (b.dataset.recusa) {
+      const motivo = prompt("Por que está recusando? (fica registrado no histórico)") || "";
+      await decidirPassagem(+b.dataset.recusa, false, motivo);
+    }
+    else if (b.dataset.cancela) await decidirPassagem(+b.dataset.cancela, false, "cancelada por quem propôs");
+    else if (b.dataset.propoe)  await proporPassagem(b.dataset.propoe, b.dataset.gatilho, b.dataset.mov);
+    else if (b.dataset.abre)    { mostrarTela("carteiras"); abrirGaveta(b.dataset.abre); }
+  } catch (err) { avisar(err.message, true); }
+});
+
+async function proporPassagem(npu, codigo, movChave) {
+  const p = BD.processos[npu];
+  if (!p || !p.id) throw new Error("Processo não encontrado.");
+  const g = DGS.ref.gatilhos.find(x => x.codigo === codigo);
+  const d = DGS.destinoDe(g, p);
+  if (!confirm(`Propor a passagem de ${mascara(npu)} para ${d.responsavel}?\n\n`
+             + `Ato: ${g.ato}\nCarteira: ${d.carteira}\n\n`
+             + `A passagem só se completa quando ${d.responsavel} aceitar.`)) return;
+  await DG.rpc("dg_propor", {
+    p_processo: p.id, p_gatilho: codigo, p_ato: g.ato,
+    p_movimento: movChave || null, p_origem: "gatilho",
+  });
+  await recarregarPassagens();
+  avisar(`Passagem proposta. Agora depende do aceite de ${d.responsavel}.`);
+}
+
+async function decidirPassagem(id, aceitar, motivo) {
+  await DG.rpc("dg_decidir", { p_id: id, p_aceitar: aceitar, p_motivo: motivo || null });
+  if (aceitar) { await carregar(); desenhar(); }
+  await recarregarPassagens();
+  avisar(aceitar ? "Passagem aceita. O processo já está na sua carteira." : "Passagem recusada.");
+}
+
+async function recarregarPassagens() {
+  DGS.transferencias = await DG.ler(
+    "/transferencias?select=*,processo:processos(npu)&order=criada_em.desc&limit=400");
+  desenharPassagens();
+}
+
+// ========================================================== painel do setor
+async function desenharPainel() {
+  const alvo = $("#painel-corpo");
+  alvo.innerHTML = `<p class="vazio-tela">Somando…</p>`;
+  try {
+    const [painel, metas] = await Promise.all([
+      DG.ler("/v_painel?select=*&order=nome"),
+      DG.ler(`/v_metas?select=*&dia=eq.${new Date().toISOString().slice(0, 10)}`),
+    ]);
+    const porPessoa = Object.fromEntries(metas.map(m => [m.membro_id, m]));
+    const linhas = painel.filter(l => l.processos > 0).map(l => {
+      const pct = l.de_conclusao ? Math.round(l.atingidos * 100 / l.de_conclusao) : 0;
+      const m = porPessoa[l.membro_id];
+      const feitas = m ? m.providencias : 0, meta = m ? m.meta_diaria : 15;
+      return `<tr>
+        <td>${esc(l.nome)}</td>
+        <td class="num">${l.processos}</td>
+        <td class="num">${l.tutelados}</td>
+        <td class="num">${l.alta}</td>
+        <td class="num">${l.atingidos} de ${l.de_conclusao} <b>(${pct}%)</b></td>
+        <td class="num">${l.acompanhamento}</td>
+        <td class="num">${l.sem_andamento}</td>
+        <td class="num">${l.com_erro || 0}</td>
+        <td class="num" style="color:${feitas >= meta ? "var(--green)" : "var(--amber)"}">
+          ${feitas} de ${meta}</td></tr>`;
+    }).join("");
+    alvo.innerHTML = `<table class="tabela-simples"><thead><tr>
+        <th>Responsável</th><th class="num">Processos</th><th class="num">Tutelados</th>
+        <th class="num">Alta</th><th class="num">Objetivos de conclusão</th>
+        <th class="num">Acompanhamento</th><th class="num">Sem andamento</th>
+        <th class="num">Falha de consulta</th><th class="num">Diligências hoje</th>
+      </tr></thead><tbody>${linhas || `<tr><td colspan="9" class="vazio-tela">Sem carteiras ainda.</td></tr>`}</tbody></table>
+      <p class="nota" style="margin-top:12px">A meta é de 15 diligências por dia por integrante
+      (item 4.1 do plano), equilibradas entre a carteira própria e os processos tutelados.
+      Diligência feita é providência registrada, não objetivo atingido.</p>`;
+  } catch (e) {
+    alvo.innerHTML = `<p class="vazio-tela">Não consegui montar o painel: ${esc(e.message)}</p>`;
+  }
+}
+
+// ================================================================== equipe
+function desenharEquipe() {
+  const alvo = $("#equipe-corpo");
+  const posso = DG.gestora();
+  const papeis = [["gestora", "Gestora"], ["diligente", "Diligente"], ["leitura", "Leitura"]];
+  const linhas = DGS.ref.membros.map(m => `<tr>
+    <td>${esc(m.nome)}<br><span class="nota">${esc(m.email)}</span></td>
+    <td>${posso
+      ? `<select data-papel="${esc(m.id)}">${papeis.map(([v, r]) =>
+          `<option value="${v}"${m.papel === v ? " selected" : ""}>${r}</option>`).join("")}</select>`
+      : `<span class="cracha${m.papel === "leitura" ? " leitura" : ""}">${esc(m.papel)}</span>`}</td>
+    <td>${posso
+      ? `<input type="text" data-apelidos="${esc(m.id)}" value="${esc((m.apelidos || []).join(", "))}"
+                placeholder="Pedro, PEDRO MIGUEL" style="width:100%;padding:4px 7px;
+                border:1px solid var(--line-2);border-radius:var(--r-s);font:inherit">`
+      : esc((m.apelidos || []).join(", "))}</td>
+    <td class="num">${posso
+      ? `<input type="checkbox" data-ativo="${esc(m.id)}"${m.ativo ? " checked" : ""}>`
+      : (m.ativo ? "sim" : "não")}</td>
+  </tr>`).join("");
+
+  alvo.innerHTML = `<table class="tabela-simples"><thead><tr>
+      <th>Pessoa</th><th style="width:150px">Papel no setor</th>
+      <th>Como aparece na planilha</th><th class="num" style="width:70px">Ativa</th>
+    </tr></thead><tbody>${linhas}</tbody></table>
+    ${posso ? `<div class="linha-acoes" style="margin-top:14px">
+        <button class="primario" id="equipe-salvar">Salvar alterações</button></div>
+      <p class="nota" style="margin-top:12px">Para incluir alguém, peça que a pessoa crie a conta
+      na tela de entrada. Ela aparece aqui como leitura, e você promove.</p>`
+    : `<p class="nota" style="margin-top:12px">Só a gestora altera papéis.</p>`}`;
+
+  const b = $("#equipe-salvar");
+  if (b) b.addEventListener("click", salvarEquipe);
+}
+
+async function salvarEquipe() {
+  const b = $("#equipe-salvar");
+  b.disabled = true;
+  let n = 0;
+  try {
+    for (const m of DGS.ref.membros) {
+      const papel = $(`select[data-papel="${m.id}"]`).value;
+      const apelidos = $(`input[data-apelidos="${m.id}"]`).value
+        .split(",").map(x => x.trim()).filter(Boolean);
+      const ativo = $(`input[data-ativo="${m.id}"]`).checked;
+      if (papel === m.papel && ativo === m.ativo
+          && apelidos.join("|") === (m.apelidos || []).join("|")) continue;
+      await DG.rpc("dg_definir_papel", {
+        p_membro: m.id, p_papel: papel, p_apelidos: apelidos, p_ativo: ativo,
+      });
+      Object.assign(m, { papel, apelidos, ativo });
+      n++;
+    }
+    avisar(n ? `${n} alteração(ões) salva(s) na equipe.` : "Nada mudou.");
+  } catch (e) {
+    avisar(e.message, true);
+  } finally {
+    b.disabled = false;
+    desenharEquipe();
+  }
+}
+
+// ================================================================== partida
+function pintarQuemSou() {
+  const m = DG.eu;
+  $("#eu").hidden = !m;
+  $("#navegacao").hidden = !m;
+  if (!m) return;
+  $("#eu-nome").textContent = m.nome;
+  const cr = $("#eu-papel");
+  cr.textContent = { gestora: "gestora", diligente: "diligente", leitura: "leitura" }[m.papel] || m.papel;
+  cr.classList.toggle("leitura", m.papel === "leitura");
+  $("#nav-equipe").hidden = false;
+  $("#nav-painel").hidden = !DG.gestora();
+  // quem é só leitura não altera nada: os botões de escrita somem
+  const soLe = m.papel === "leitura";
+  for (const id of ["#ver24", "#ver72", "#abrir-importar"]) $(id).disabled = soLe;
+  if (soLe) {
+    avisar("Você entrou como leitura: enxerga as carteiras, mas ainda não altera nada. "
+         + "Peça à gestora para liberar o seu acesso na tela de Equipe.");
+  }
+}
+
+async function abrirSistema() {
+  $("#porta").hidden = true;
+  pintarQuemSou();
+  await carregar();
+  $("#usar-2g").checked = BD.usar2g !== false;
+  // abre na própria carteira, que é o que a pessoa quer ver primeiro
+  const minha = DG.eu && DG.eu.nome;
+  if (minha && abas().includes(minha)) abaAtiva = minha;
+  else if (!daAba(abaAtiva).length) {
+    const com = abas().find(a => daAba(a).length);
+    if (com) abaAtiva = com;
+  }
+  try { desenhar(); }
+  catch (e) { console.error(e); avisar("Algo deu errado ao desenhar a tela; recarregue a página.", true); }
+  desenharPassagens();
+  mostrarTela("carteiras");
+  if (!BD.ordem.length && DG.escreve()) {
+    avisar("A base está vazia. Abra “Importar base” e carregue a aba da sua carteira "
+         + "da planilha de carteiras completas.");
+  }
+}
+
+DG.ao("fila", () => mostrarEspaco());
+DG.ao("recusado", ({ erro }) => avisar(`O banco recusou uma alteração: ${erro}`, true));
+
+(async function partida() {
+  try {
+    const m = await DG.iniciar();
+    if (m) await abrirSistema();
+    else { $("#porta").hidden = false; ajustarPorta(); $("#porta-email").focus(); }
+  } catch (e) {
+    $("#porta").hidden = false;
+    ajustarPorta();
+    erroPorta(e.message);
+  }
+})();
+</script>
+</body>
+</html>

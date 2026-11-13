@@ -410,7 +410,9 @@
       <button class="secundario fechar" data-fecha="painel-importar">Fechar</button></h2>
     <div class="painel-corpo">
       <p class="nota">Aceita planilha do Excel (.xlsx, .xls) ou .csv. A DiliGLA lê o cabeçalho, mostra como entendeu cada
-        coluna e deixa você corrigir antes de confirmar. Os processos vão para a aba do responsável indicado na planilha.</p>
+        coluna e deixa você corrigir antes de confirmar. Os processos vão para a aba do responsável indicado na planilha.
+        A planilha <b>Carteiras completas por estagiário</b> (uma aba por pessoa) é reconhecida sozinha: aí você
+        escolhe quem recebe cada carteira e distribui de uma vez.</p>
       <label class="envio">
         <input type="file" id="arquivo" accept=".xlsx,.xls,.csv,.txt">
         <span>Escolher planilha…</span>
@@ -426,6 +428,18 @@
             <input type="checkbox" id="substituir" style="accent-color:var(--gold)">
             Substituir a base atual em vez de somar a ela
           </label>
+        </div>
+      </div>
+      <!-- planilha de carteiras completas: uma aba por pessoa -->
+      <div id="distribuir" hidden>
+        <p class="nota" id="distribuir-nota"></p>
+        <div style="overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-s)">
+          <table class="tabela-simples" id="distribuir-tabela"></table>
+        </div>
+        <p class="nota" id="distribuir-aviso" style="margin-top:10px"></p>
+        <div class="linha-acoes" style="margin-top:13px">
+          <button id="confirmar-distribuir" class="primario">Distribuir carteiras</button>
+          <button id="cancelar-distribuir" class="secundario">Cancelar</button>
         </div>
       </div>
       <hr style="border:0;border-top:1px solid var(--line);margin:2px 0">
@@ -514,8 +528,9 @@
   <div id="tela-equipe" hidden>
     <h2 style="margin:18px 0 4px;font-size:18px">Equipe</h2>
     <p class="nota" style="margin:0 0 16px">Quem cria conta entra como leitura e não altera nada
-      até ser promovido aqui. Os apelidos são as grafias do nome na planilha, e é por eles que a
-      importação descobre de quem é cada linha.</p>
+      até ser promovido aqui. Quem tem acesso de administração — a gestora e Pedro Miguel — cria
+      a conta dos demais por esta tela. Os apelidos são as grafias do nome na planilha, e é por
+      eles que a importação descobre de quem é cada linha.</p>
     <div id="equipe-corpo"></div>
   </div>
 </main>
@@ -1126,7 +1141,10 @@ function abrirGaveta(npu) {
   const p = BD.processos[npu]; if (!p) return;
   gavetaNpu = npu;
   $("#g-npu").textContent = mascara(npu);
-  $("#g-sub").textContent = [p.orgao && `1º grau: ${p.orgao}`,
+  $("#g-sub").textContent = [p.grupo, p.jurisdicao,
+                             p.categoria && p.categoria !== "propria" && ROTULO_CATEGORIA[p.categoria],
+                             p.bloco || p.carteira,
+                             p.orgao && `1º grau: ${p.orgao}`,
                              p.orgao_2g && `2º grau: ${p.orgao_2g}`,
                              p.colegiado && `Colegiado: ${p.colegiado}`,
                              p.relator && `Relator: ${p.relator}`]
@@ -1259,6 +1277,15 @@ $("#arquivo").addEventListener("change", async e => {
   try {
     if (!window.XLSX) throw new Error("O leitor de planilhas não carregou. Recarregue a página.");
     const wb = XLSX.read(await arquivo.arrayBuffer(), { type: "array", cellDates: false });
+    // planilha de carteiras completas (uma aba por pessoa): vai para a distribuição
+    const carteirasPessoa = lerCarteirasPorPessoa(wb);
+    if (carteirasPessoa.length) {
+      importacao = null; $("#mapa").hidden = true;
+      distribuicao = { arquivo: arquivo.name, abas: carteirasPessoa };
+      montarDistribuicao();
+      $("#painel-importar").hidden = false;
+      return;
+    }
     // o modelo tem três abas (Listas, Processos, Como preencher): vence a que tem o
     // cabeçalho mais parecido com o esperado, e só no empate a que tem mais linhas
     let linhas = [], melhorNota = -1, abaEscolhida = "";
@@ -1284,6 +1311,7 @@ $("#arquivo").addEventListener("change", async e => {
       }
       mapa.npu = melhor;
     }
+    distribuicao = null; $("#distribuir").hidden = true;
     importacao = { cabecalhos, corpo, mapa, arquivo: arquivo.name, aba: abaEscolhida };
     montarMapa();
     $("#painel-importar").hidden = false;
@@ -1386,10 +1414,12 @@ $("#confirmar-importar").addEventListener("click", async () => {
 // metade velha e metade nova.
 async function enviarImportacao(linhas, arquivo, aba) {
   const lote = linhas.map(l => ({
-    npu: l.npu, responsavel: l.resp || "", grupo: l.grupo || "",
-    materia: l.materia || "", fase: l.fase || "", valor: l.valor || "",
-    prioridade: l.prioridade || "", objetivo: l.objetivo || "",
+    npu: l.npu, responsavel: l.resp || "", responsavel_id: l.responsavel_id || "",
+    grupo: l.grupo || "", materia: l.materia || "", fase: l.fase || "",
+    valor: normalizarValor(l.valor), prioridade: l.prioridade || "", objetivo: l.objetivo || "",
     observacao: l.observacao || "", carteira: l.carteira || "", bloco: l.bloco || "",
+    categoria: l.categoria || "", jurisdicao: l.jurisdicao || "",
+    situacao: l.situacao || "", movimentacao: l.movimentacao || "",
   }));
   let acumulado = { criados: 0, atualizados: 0, ignorados: 0, recusas: [] };
   // em blocos, que mil linhas num JSON só é pedir para a requisição estourar
@@ -1406,6 +1436,232 @@ async function enviarImportacao(linhas, arquivo, aba) {
 
 $("#cancelar-importar").addEventListener("click", () => {
   importacao = null; $("#mapa").hidden = true; $("#painel-importar").hidden = true;
+});
+
+// "12.345,67", "12,345.67", 12345.67 -> "12345.67". O Excel formata o valor
+// conforme o idioma de quem gerou a planilha; o banco recebe sempre o número.
+function normalizarValor(v) {
+  if (v === null || v === undefined || v === "") return "";
+  if (typeof v === "number") return isFinite(v) ? String(v) : "";
+  let s = String(v).replace(/[^0-9,.-]/g, "");
+  if (!s) return "";
+  const virg = s.lastIndexOf(","), ponto = s.lastIndexOf(".");
+  if (virg >= 0 && ponto >= 0) {
+    s = virg > ponto ? s.replace(/\./g, "").replace(",", ".") : s.replace(/,/g, "");
+  } else if (virg >= 0) {
+    s = s.replace(",", ".");
+  }
+  return isFinite(Number(s)) ? s : "";
+}
+
+// =========================================== distribuição das carteiras completas
+// A planilha "Carteiras completas por estagiário" tem uma aba por pessoa e
+// nenhuma coluna de responsável: o dono da carteira é a própria aba. Quem tem
+// acesso de administração escolhe, aba por aba, quem recebe aquela carteira, e
+// só no clique de "Distribuir" as carteiras mudam de mão.
+const ROTULO_CATEGORIA = { propria: "Própria", realocada: "Realocada", tutelada: "Tutelada" };
+const COLUNAS_CARTEIRA = [
+  ["npu", /n[ºo°.]*\s*do\s*processo|^npu|^processo|numero do processo|cnj/],
+  ["categoria", /^categoria/],
+  ["movimentacao", /movimentac/],
+  ["titular", /titular/],
+  ["blocoCarteira", /bloco|carteira/],
+  ["grupo", /^grupo/],
+  ["jurisdicao", /jurisdic/],
+  ["fase", /^fase/],
+  ["objetivo", /objetivo/],
+  ["situacao", /situac/],
+  ["valor", /^valor/],
+  ["prioridade", /prioridade/],
+  ["observacao", /observac/],
+];
+let distribuicao = null;
+
+function cabecalhoDeCarteira(linhas) {
+  for (let i = 0; i < Math.min(40, linhas.length); i++) {
+    const cels = (linhas[i] || []).map(semAcento);
+    const temNpu = cels.some(c => COLUNAS_CARTEIRA[0][1].test(c));
+    // "INCLUÍDO NESTA REVISÃO (estava sem responsável)" não é coluna de responsável
+    const temResp = cels.some(c => /^(respons|estagiari|diligente|atribuid)/.test(c));
+    const extras = COLUNAS_CARTEIRA.slice(1).filter(([, t]) => cels.some(c => t.test(c))).length;
+    if (temNpu && extras >= 4) return temResp ? -2 : i;   // -2: tem responsável, não é por pessoa
+  }
+  return -1;
+}
+
+function lerCarteirasPorPessoa(wb) {
+  const saida = [];
+  for (const nome of wb.SheetNames) {
+    const linhas = XLSX.utils.sheet_to_json(wb.Sheets[nome], { header: 1, raw: true, defval: "" });
+    const iCab = cabecalhoDeCarteira(linhas);
+    if (iCab === -2) return [];        // planilha com coluna de responsável: importação comum
+    if (iCab < 0) continue;
+    const cab = linhas[iCab].map(semAcento);
+    const col = {}, usados = new Set();
+    for (const [campo, teste] of COLUNAS_CARTEIRA) {
+      const k = cab.findIndex((c, j) => !usados.has(j) && teste.test(c));
+      if (k >= 0) { col[campo] = k; usados.add(k); }
+    }
+    const pega = (r, campo) => col[campo] === undefined ? "" : r[col[campo]];
+    const txt = (r, campo) => String(pega(r, campo) ?? "").replace(/\s+/g, " ").trim();
+    const vistos = new Set(), processos = [], ruins = [];
+    for (const r of linhas.slice(iCab + 1)) {
+      const bruto = txt(r, "npu");
+      if (!bruto) continue;
+      const npu = normalizarNpu(bruto);
+      if (!npu) { if (soDigitos(bruto).length >= 10) ruins.push(bruto); continue; }
+      if (vistos.has(npu)) continue;
+      vistos.add(npu);
+      const { carteira, bloco } = interpretarBlocoCarteira(txt(r, "blocoCarteira"));
+      processos.push({
+        npu, grupo: txt(r, "grupo"), categoria: txt(r, "categoria"),
+        carteira, bloco, blocoCarteira: txt(r, "blocoCarteira"),
+        jurisdicao: txt(r, "jurisdicao"), fase: txt(r, "fase"),
+        objetivo: txt(r, "objetivo"), situacao: txt(r, "situacao"),
+        movimentacao: txt(r, "movimentacao"), observacao: txt(r, "observacao"),
+        valor: normalizarValor(pega(r, "valor")),
+        prioridade: normalizarPrioridade(txt(r, "prioridade")),
+      });
+    }
+    if (processos.length) saida.push({ aba: nome, processos, ruins });
+  }
+  return saida;
+}
+
+// "Brenda – P1 Presença em execução" -> bloco P1, carteira Presença
+// "Vivíssima (RPV expedida)" -> carteira Vivíssima ; "Expansão Pós" -> Expansão Pós
+function interpretarBlocoCarteira(texto) {
+  const t = semAcento(texto);
+  if (!t) return { carteira: "", bloco: "" };
+  const blocos = DGS.ref.blocos || [], carteiras = DGS.ref.carteiras || [];
+  let bloco = "";
+  if (/presenca em execucao/.test(t)) bloco = "P1";       // o bloco P1 cobre "P1 e P4 – Presença"
+  else if (/aguardando acordao/.test(t)) bloco = "PA";
+  else {
+    const m = /(?:^|[^a-z0-9])([pnrx]\d)(?![0-9])/.exec(t);
+    if (m) bloco = m[1].toUpperCase();
+  }
+  if (bloco && blocos.length && !blocos.some(b => b.codigo === bloco)) bloco = "";
+  // o nome mais comprido primeiro: "Expansão Pós" antes de "Expansão", "Vivíssima" antes de "Viva"
+  const porTamanho = [...carteiras].sort((a, b) => b.nome.length - a.nome.length);
+  let cart = porTamanho.find(c => new RegExp(`(^|[^a-z])${semAcento(c.nome)}([^a-z]|$)`).test(t));
+  if (!cart && /conciliacao de recebimento|alvara/.test(t)) cart = carteiras.find(c => c.codigo === "vivissima");
+  return { carteira: cart ? cart.codigo : "", bloco };
+}
+
+const nomeSemParenteses = n => String(n).replace(/\(.*?\)/g, "").replace(/\s+/g, " ").trim();
+const chaveCompacta = t => semAcento(t).replace(/[^a-z0-9]/g, "");
+function membroDaAba(aba) {
+  const alvo = nomeSemParenteses(aba);
+  const ativos = DGS.ref.membros.filter(m => m.ativo);
+  return DGS.membroPorNome(alvo)
+      || ativos.find(m => chaveCompacta(m.nome) === chaveCompacta(alvo))
+      || ativos.find(m => (m.apelidos || []).some(a => chaveCompacta(a) === chaveCompacta(alvo)))
+      || null;
+}
+const ROTULO_ACESSO = { gestora: "Administração", diligente: "Diligente", leitura: "Leitura" };
+const cargoDe = m => m.cargo || ({ gestora: "Gestora", diligente: "Estagiário(a)", leitura: "—" })[m.papel] || "";
+
+function montarDistribuicao() {
+  const admin = DG.gestora();
+  const membros = DGS.ref.membros.filter(m => m.ativo)
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  const opcoes = admin ? membros : membros.filter(m => m.id === DG.meuId());
+  const total = distribuicao.abas.reduce((s, a) => s + a.processos.length, 0);
+  $("#distribuir-nota").innerHTML = `<b>${esc(distribuicao.arquivo)}</b> é uma planilha de carteiras `
+    + `por pessoa: <b>${distribuicao.abas.length}</b> carteira(s), <b>${total}</b> processo(s). `
+    + `Escolha quem recebe cada carteira. Nada muda até você clicar em “Distribuir carteiras”; `
+    + `o que já foi produzido aqui (objetivo atingido, observação, providências e andamentos) é preservado.`;
+
+  const linhas = distribuicao.abas.map((a, i) => {
+    const sugerido = a.escolhido !== undefined ? a.escolhido : (membroDaAba(a.aba) || {}).id || "";
+    if (a.escolhido === undefined) a.escolhido = opcoes.some(m => m.id === sugerido) ? sugerido : "";
+    const pri = PRIORIDADES.map(p => a.processos.filter(x => x.prioridade === p).length).join(" / ");
+    const cats = Object.entries(a.processos.reduce((s, x) => {
+      const c = semAcento(x.categoria).split(/\s/)[0] || "propria";
+      s[c] = (s[c] || 0) + 1; return s;
+    }, {})).map(([c, n]) => `${({ propria: "própria", realocada: "realocada", tutelada: "tutelada" })[c] || c}: ${n}`)
+      .join(" · ");
+    return `<tr>
+      <td><b>${esc(a.aba)}</b><br><span class="nota">${esc(cats)}</span></td>
+      <td class="num">${a.processos.length}${a.ruins.length
+        ? `<br><span class="nota" style="color:var(--red)">${a.ruins.length} número(s) inválido(s)</span>` : ""}</td>
+      <td class="num">${esc(pri)}</td>
+      <td><select data-distribui="${i}" style="width:100%">
+        <option value="">— não distribuir agora —</option>
+        ${opcoes.map(m => `<option value="${esc(m.id)}"${m.id === a.escolhido ? " selected" : ""}>`
+          + `${esc(m.nome)} · ${esc(cargoDe(m))}${m.papel === "leitura" ? " (só leitura)" : ""}</option>`).join("")}
+      </select></td></tr>`;
+  }).join("");
+  $("#distribuir-tabela").innerHTML = `<thead><tr><th>Carteira na planilha</th>
+      <th class="num">Processos</th><th class="num">Alta / Média / Baixa</th>
+      <th style="width:38%">Quem recebe</th></tr></thead><tbody>${linhas}</tbody>`;
+  $$("#distribuir-tabela select").forEach(s => s.addEventListener("change", () => {
+    distribuicao.abas[+s.dataset.distribui].escolhido = s.value;
+    avisoDistribuicao();
+  }));
+  avisoDistribuicao();
+  $("#distribuir").hidden = false;
+}
+
+function avisoDistribuicao() {
+  const avisos = [];
+  const semDono = distribuicao.abas.filter(a => !a.escolhido).map(a => a.aba);
+  if (semDono.length) {
+    avisos.push(`Sem destino escolhido: ${semDono.join(", ")}. `
+      + (DG.gestora() ? "Se a pessoa ainda não tem conta, crie na tela Equipe e volte aqui." : ""));
+  }
+  const porMembro = {};
+  for (const a of distribuicao.abas) if (a.escolhido) (porMembro[a.escolhido] = porMembro[a.escolhido] || []).push(a.aba);
+  for (const [id, abas] of Object.entries(porMembro)) {
+    if (abas.length > 1) avisos.push(`${nomeDeMembro(id)} vai receber ${abas.length} carteiras (${abas.join(", ")}).`);
+    const m = DGS.ref.membros.find(x => x.id === id);
+    if (m && m.papel === "leitura") avisos.push(`${m.nome} está com acesso de leitura e não vai conseguir trabalhar a carteira até ser promovida na tela Equipe.`);
+  }
+  if (!DG.gestora()) avisos.push("Só a administração distribui as carteiras dos outros; você pode trazer apenas a sua.");
+  $("#distribuir-aviso").textContent = avisos.join(" ");
+  $("#confirmar-distribuir").disabled = !distribuicao.abas.some(a => a.escolhido);
+}
+
+$("#confirmar-distribuir").addEventListener("click", async () => {
+  if (!distribuicao) return;
+  const escolhidas = distribuicao.abas.filter(a => a.escolhido);
+  if (!escolhidas.length) return;
+  const resumo = escolhidas.map(a => `• ${a.aba} (${a.processos.length}) → ${nomeDeMembro(a.escolhido)}`).join("\n");
+  if (!confirm(`Distribuir estas carteiras agora?\n\n${resumo}\n\n`
+             + "Os processos passam para quem foi escolhido. O que já foi registrado aqui é preservado.")) return;
+  const b = $("#confirmar-distribuir");
+  b.disabled = true;
+  const soma = { criados: 0, atualizados: 0, ignorados: 0, recusas: [] };
+  try {
+    for (const [i, a] of escolhidas.entries()) {
+      const nome = nomeDeMembro(a.escolhido);
+      avisar(`Distribuindo ${a.aba} para ${nome} (${i + 1} de ${escolhidas.length})…`);
+      const linhas = a.processos.map(p => ({ ...p, resp: nome, responsavel_id: a.escolhido }));
+      const r = await enviarImportacao(linhas, distribuicao.arquivo, a.aba);
+      soma.criados += r.criados; soma.atualizados += r.atualizados;
+      soma.ignorados += r.ignorados; soma.recusas = soma.recusas.concat(r.recusas);
+    }
+    distribuicao = null;
+    $("#distribuir").hidden = true; $("#painel-importar").hidden = true;
+    await carregar();
+    const minha = DG.eu && DG.eu.nome;
+    if (minha && abas().includes(minha)) abaAtiva = minha;
+    desenhar();
+    let texto = `Carteiras distribuídas: ${soma.criados} processo(s) novo(s), ${soma.atualizados} atualizado(s)`;
+    if (soma.ignorados) texto += `, ${soma.ignorados} recusado(s) (detalhes no console)`;
+    avisar(texto + ".", !!soma.ignorados);
+    if (soma.recusas.length) console.table(soma.recusas);
+  } catch (e) {
+    avisar(`A distribuição parou no meio: ${e.message}. O que já foi enviado ficou gravado; `
+         + "pode distribuir de novo, sem risco de duplicar.", true);
+  } finally {
+    b.disabled = false;
+  }
+});
+
+$("#cancelar-distribuir").addEventListener("click", () => {
+  distribuicao = null; $("#distribuir").hidden = true; $("#painel-importar").hidden = true;
 });
 
 // ------------------------------------------------------------------ painéis
@@ -2566,38 +2822,123 @@ async function desenharPainel() {
 }
 
 // ================================================================== equipe
+// Cargo e acesso são coisas diferentes: o cargo é o que a pessoa é no
+// escritório (Gestora, Estagiário); o acesso é o que ela pode fazer aqui.
+// Pedro Miguel é estagiário com acesso de administração, igual ao da gestora.
+const CARGOS = ["Gestora", "Gestor", "Estagiária", "Estagiário", "Advogada", "Advogado", "Coordenadora", "Coordenador"];
+const ACESSOS = [["gestora", "Administração"], ["diligente", "Diligente"], ["leitura", "Leitura"]];
+const estiloCampo = `style="width:100%;padding:4px 7px;border:1px solid var(--line-2);border-radius:var(--r-s);font:inherit"`;
+
 function desenharEquipe() {
   const alvo = $("#equipe-corpo");
   const posso = DG.gestora();
-  const papeis = [["gestora", "Gestora"], ["diligente", "Diligente"], ["leitura", "Leitura"]];
   const linhas = DGS.ref.membros.map(m => `<tr>
-    <td>${esc(m.nome)}<br><span class="nota">${esc(m.email)}</span></td>
     <td>${posso
-      ? `<select data-papel="${esc(m.id)}">${papeis.map(([v, r]) =>
+      ? `<input type="text" data-nome="${esc(m.id)}" value="${esc(m.nome)}" ${estiloCampo}>`
+      : esc(m.nome)}<br><span class="nota">${esc(m.email)}</span></td>
+    <td>${posso
+      ? `<input type="text" data-cargo="${esc(m.id)}" value="${esc(m.cargo || "")}" list="lista-cargos"
+                placeholder="${esc(cargoDe(m))}" ${estiloCampo}>`
+      : esc(cargoDe(m))}</td>
+    <td>${posso
+      ? `<select data-papel="${esc(m.id)}">${ACESSOS.map(([v, r]) =>
           `<option value="${v}"${m.papel === v ? " selected" : ""}>${r}</option>`).join("")}</select>`
-      : `<span class="cracha${m.papel === "leitura" ? " leitura" : ""}">${esc(m.papel)}</span>`}</td>
+      : `<span class="cracha${m.papel === "leitura" ? " leitura" : ""}">${esc(ROTULO_ACESSO[m.papel] || m.papel)}</span>`}</td>
     <td>${posso
       ? `<input type="text" data-apelidos="${esc(m.id)}" value="${esc((m.apelidos || []).join(", "))}"
-                placeholder="Pedro, PEDRO MIGUEL" style="width:100%;padding:4px 7px;
-                border:1px solid var(--line-2);border-radius:var(--r-s);font:inherit">`
+                placeholder="Pedro, PEDRO MIGUEL" ${estiloCampo}>`
       : esc((m.apelidos || []).join(", "))}</td>
     <td class="num">${posso
       ? `<input type="checkbox" data-ativo="${esc(m.id)}"${m.ativo ? " checked" : ""}>`
       : (m.ativo ? "sim" : "não")}</td>
   </tr>`).join("");
 
-  alvo.innerHTML = `<table class="tabela-simples"><thead><tr>
-      <th>Pessoa</th><th style="width:150px">Papel no setor</th>
+  alvo.innerHTML = `<datalist id="lista-cargos">${CARGOS.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
+    <table class="tabela-simples"><thead><tr>
+      <th>Pessoa</th><th style="width:150px">Cargo</th><th style="width:150px">Acesso</th>
       <th>Como aparece na planilha</th><th class="num" style="width:70px">Ativa</th>
     </tr></thead><tbody>${linhas}</tbody></table>
     ${posso ? `<div class="linha-acoes" style="margin-top:14px">
         <button class="primario" id="equipe-salvar">Salvar alterações</button></div>
-      <p class="nota" style="margin-top:12px">Para incluir alguém, peça que a pessoa crie a conta
-      na tela de entrada. Ela aparece aqui como leitura, e você promove.</p>`
-    : `<p class="nota" style="margin-top:12px">Só a gestora altera papéis.</p>`}`;
+      <p class="nota" style="margin-top:12px"><b>Administração</b> faz tudo: distribui carteiras,
+      cria contas, altera acessos e decide passagens de qualquer carteira. <b>Diligente</b> trabalha a
+      própria carteira. <b>Leitura</b> só enxerga.</p>
+      <section class="painel" style="margin-top:22px">
+        <h2>Criar conta para alguém da equipe</h2>
+        <div class="painel-corpo">
+          <div class="de-para" id="novo-membro">
+            <div><label class="rotulo" for="nm-nome">Nome completo</label>
+              <input type="text" id="nm-nome" placeholder="Ana Letícia Souza" ${estiloCampo}></div>
+            <div><label class="rotulo" for="nm-email">E-mail</label>
+              <input type="email" id="nm-email" placeholder="nome@escritorio.com.br" autocomplete="off" ${estiloCampo}></div>
+            <div><label class="rotulo" for="nm-cargo">Cargo</label>
+              <input type="text" id="nm-cargo" list="lista-cargos" value="Estagiária" ${estiloCampo}></div>
+            <div><label class="rotulo" for="nm-papel">Acesso</label>
+              <select id="nm-papel" style="width:100%">${ACESSOS.map(([v, r]) =>
+                `<option value="${v}"${v === "diligente" ? " selected" : ""}>${r}</option>`).join("")}</select></div>
+            <div><label class="rotulo" for="nm-apelidos">Como aparece na planilha</label>
+              <input type="text" id="nm-apelidos" placeholder="Ana Letícia, Ana" ${estiloCampo}></div>
+            <div><label class="rotulo" for="nm-senha">Senha provisória</label>
+              <input type="text" id="nm-senha" autocomplete="new-password" ${estiloCampo}></div>
+          </div>
+          <div class="linha-acoes">
+            <button class="primario" id="nm-criar">Criar conta</button>
+            <span class="nota">Passe o e-mail e a senha provisória para a pessoa; ela pode trocar a
+              senha depois em “Esqueci a senha”.</span>
+          </div>
+          <p class="nota" id="nm-resultado" hidden></p>
+        </div>
+      </section>`
+    : `<p class="nota" style="margin-top:12px">Só quem tem acesso de administração altera a equipe.</p>`}`;
 
   const b = $("#equipe-salvar");
   if (b) b.addEventListener("click", salvarEquipe);
+  if (posso) {
+    $("#nm-senha").value = senhaProvisoria();
+    $("#nm-criar").addEventListener("click", criarMembro);
+  }
+}
+
+function senhaProvisoria() {
+  const letras = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const v = new Uint32Array(12);
+  crypto.getRandomValues(v);
+  return [...v].map(n => letras[n % letras.length]).join("");
+}
+
+async function criarMembro() {
+  const nome = $("#nm-nome").value.trim();
+  const email = $("#nm-email").value.trim();
+  const senha = $("#nm-senha").value;
+  const cargo = $("#nm-cargo").value.trim();
+  const papel = $("#nm-papel").value;
+  const apelidos = $("#nm-apelidos").value.split(",").map(x => x.trim()).filter(Boolean);
+  const res = $("#nm-resultado");
+  const mostrar = (t, ruim) => { res.textContent = t; res.hidden = false; res.style.color = ruim ? "var(--red)" : ""; };
+  if (!nome) return mostrar("Escreva o nome completo.", true);
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return mostrar("Confira o e-mail.", true);
+  if (senha.length < 8) return mostrar("A senha provisória precisa de pelo menos 8 caracteres.", true);
+  // o nome completo também vale como grafia da planilha
+  if (!apelidos.some(a => semAcento(a) === semAcento(nome))) apelidos.unshift(nome);
+  const b = $("#nm-criar");
+  b.disabled = true;
+  try {
+    const r = await DG.criarMembro({ email, senha, nome, cargo, papel, apelidos });
+    DGS.ref.membros = await DG.ler("/membros?select=*&order=nome");
+    desenharEquipe();
+    const msg = `Conta criada para ${nome} (${email}). Senha provisória: ${senha}`
+      + (r.confirmada ? " — a pessoa já pode entrar."
+                      : " — o Supabase pediu confirmação: a pessoa precisa clicar no link que chegou no e-mail antes de entrar.");
+    $("#nm-resultado").textContent = msg;
+    $("#nm-resultado").hidden = false;
+    avisar(`Conta de ${nome} criada.`);
+    if (distribuicao) montarDistribuicao();
+  } catch (e) {
+    mostrar(e.message, true);
+  } finally {
+    const bb = $("#nm-criar");
+    if (bb) bb.disabled = false;
+  }
 }
 
 async function salvarEquipe() {
@@ -2610,15 +2951,25 @@ async function salvarEquipe() {
       const apelidos = $(`input[data-apelidos="${m.id}"]`).value
         .split(",").map(x => x.trim()).filter(Boolean);
       const ativo = $(`input[data-ativo="${m.id}"]`).checked;
-      if (papel === m.papel && ativo === m.ativo
+      const nome = $(`input[data-nome="${m.id}"]`).value.trim() || m.nome;
+      const cargo = $(`input[data-cargo="${m.id}"]`).value.trim();
+      if (papel === m.papel && ativo === m.ativo && nome === m.nome && cargo === (m.cargo || "")
           && apelidos.join("|") === (m.apelidos || []).join("|")) continue;
       await DG.rpc("dg_definir_papel", {
         p_membro: m.id, p_papel: papel, p_apelidos: apelidos, p_ativo: ativo,
+        p_nome: nome, p_cargo: cargo,
       });
-      Object.assign(m, { papel, apelidos, ativo });
+      Object.assign(m, { papel, apelidos, ativo, nome, cargo: cargo || null });
       n++;
     }
     avisar(n ? `${n} alteração(ões) salva(s) na equipe.` : "Nada mudou.");
+    if (n) {
+      // nomes podem ter mudado, e as abas são pelo nome: recarrega tudo
+      await carregar();
+      const eu = DG.eu && DGS.ref.membros.find(x => x.id === DG.eu.id);
+      if (eu) { Object.assign(DG.eu, eu); pintarQuemSou(); }
+      desenhar();
+    }
   } catch (e) {
     avisar(e.message, true);
   } finally {
@@ -2635,7 +2986,10 @@ function pintarQuemSou() {
   if (!m) return;
   $("#eu-nome").textContent = m.nome;
   const cr = $("#eu-papel");
-  cr.textContent = { gestora: "gestora", diligente: "diligente", leitura: "leitura" }[m.papel] || m.papel;
+  // mostra o cargo; o acesso de administração vem junto quando o cargo não for de gestão
+  const cargo = cargoDe(m);
+  cr.textContent = m.papel === "gestora" && !/^gest/i.test(cargo) ? `${cargo} · admin` : cargo;
+  cr.title = `Acesso: ${ROTULO_ACESSO[m.papel] || m.papel}`;
   cr.classList.toggle("leitura", m.papel === "leitura");
   $("#nav-equipe").hidden = false;
   $("#nav-painel").hidden = !DG.gestora();
@@ -2644,7 +2998,7 @@ function pintarQuemSou() {
   for (const id of ["#ver24", "#ver72", "#abrir-importar"]) $(id).disabled = soLe;
   if (soLe) {
     avisar("Você entrou como leitura: enxerga as carteiras, mas ainda não altera nada. "
-         + "Peça à gestora para liberar o seu acesso na tela de Equipe.");
+         + "Peça à gestora (ou a quem tem acesso de administração) para liberar o seu acesso na tela de Equipe.");
   }
 }
 

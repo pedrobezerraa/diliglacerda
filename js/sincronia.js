@@ -78,6 +78,7 @@ window.DGS = (function () {
         materia: p.materia || "", grupo: p.grupo || "",
         valor: p.valor == null ? null : Number(p.valor),
         juizo: p.juizo || "", orgao: p.juizo || "", orgao_2g: p.orgao_2g || "",
+        jurisdicao: p.jurisdicao || "",
         colegiado: p.colegiado || "", erro: p.erro || "",
         consultado_em: p.consultado_em || "", revisado_em: p.revisado_em || "",
         revisar_ate: p.revisar_ate || "", tipo_objetivo: p.tipo_objetivo || "",

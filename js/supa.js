@@ -106,6 +106,47 @@ window.DG = (function () {
     return j;
   }
 
+  // A administração cria a conta de outra pessoa. O caminho principal é a
+  // função /api/membros, que usa a chave secreta do Supabase no servidor e
+  // deixa a conta pronta para entrar. Se ela não estiver configurada, cai no
+  // cadastro comum — sem guardar a sessão da conta nova, para quem está
+  // criando continuar logado — e acerta o acesso pela dg_definir_papel.
+  async function criarMembro({ email, senha, nome, cargo, papel, apelidos }) {
+    const token = await garantirToken();
+    let r = null;
+    try {
+      r = await fetch("/api/membros", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ email, senha, nome, cargo, papel, apelidos }),
+      });
+    } catch { r = null; }
+    if (r && r.ok) return { ...(await r.json()), confirmada: true };
+    if (r && r.status !== 404 && r.status !== 501 && r.status !== 405) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.erro || `erro ${r.status}`);
+    }
+
+    const s = await fetch(`${cfg.url}/auth/v1/signup`, {
+      method: "POST",
+      headers: { apikey: cfg.chave, "Content-Type": "application/json" },
+      body: JSON.stringify({ email: String(email).trim(), password: senha, data: { nome, cargo } }),
+    });
+    const j = await s.json().catch(() => ({}));
+    if (!s.ok) {
+      const m = String(j.msg || j.error_description || j.message || "");
+      if (/already|registered/i.test(m)) throw new Error(`Já existe uma conta com ${email}.`);
+      throw new Error(m || "Não foi possível criar a conta.");
+    }
+    const id = (j.user && j.user.id) || j.id;
+    if (!id) throw new Error("O Supabase não devolveu a conta criada.");
+    await rpc("dg_definir_papel", {
+      p_membro: id, p_papel: papel, p_apelidos: apelidos || [], p_ativo: true,
+      p_nome: nome, p_cargo: cargo || "",
+    });
+    return { id, confirmada: !!j.access_token || !!(j.user && j.user.email_confirmed_at) };
+  }
+
   async function recuperarSenha(email) {
     const r = await fetch(`${cfg.url}/auth/v1/recover`, {
       method: "POST",
@@ -281,7 +322,7 @@ window.DG = (function () {
   }
 
   return {
-    iniciar, ao, entrar, criarConta, recuperarSenha, trocarSenha, sair,
+    iniciar, ao, entrar, criarConta, criarMembro, recuperarSenha, trocarSenha, sair,
     get eu() { return eu; },
     get logado() { return !!sessao && !!eu; },
     get pendentes() { return fila.length; },

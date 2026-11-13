@@ -136,6 +136,12 @@ window.DG = (function () {
     if (!s.ok) {
       const m = String(j.msg || j.error_description || j.message || "");
       if (/already|registered/i.test(m)) throw new Error(`Já existe uma conta com ${email}.`);
+      if (s.status === 429 || /rate limit/i.test(m)) {
+        throw new Error("O Supabase atingiu o limite de e-mails de confirmação por hora, e a conta "
+          + "não foi criada. Para não depender de e-mail: desligue “Confirm email” no Supabase "
+          + "(Authentication → Sign In / Providers → Email) ou cadastre a SUPABASE_SERVICE_ROLE_KEY "
+          + "na Vercel. Depois é só tentar de novo.");
+      }
       throw new Error(m || "Não foi possível criar a conta.");
     }
     const id = (j.user && j.user.id) || j.id;

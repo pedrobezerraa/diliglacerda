@@ -323,6 +323,9 @@
   .gaveta .g-campos { display: grid; gap: 11px; padding: 15px 20px; border-bottom: 1px solid var(--line); background: var(--raised); }
   .gaveta .g-campos label { display: block; font-size: .78rem; font-weight: 600; color: var(--muted); margin-bottom: 3px; }
   .gaveta .g-campos input, .gaveta .g-campos select { width: 100%; }
+  .registro-dilig { padding: 11px 12px; border: 1px solid var(--line-2); border-radius: var(--r-s); background: var(--surface); }
+  .g-titulo { padding: 12px 20px 4px; margin: 0; font-size: .78rem; font-weight: 600; color: var(--muted);
+              text-transform: uppercase; letter-spacing: .03em; }
   .hist { padding: 11px 20px; border-bottom: 1px solid var(--line); }
   .hist time { font-family: var(--mono); font-size: .76rem; color: var(--muted); }
   .hist p { margin: 4px 0 0; font-size: .85rem; line-height: 1.45; }
@@ -566,6 +569,19 @@
       <option value="espera">Espera — formação do contraditório</option>
       <option value="interno">Interno — peça ou cálculo do escritório</option>
     </select></div>
+    <div class="registro-dilig">
+      <label for="g-feito">Diligência feita agora</label>
+      <input type="text" id="g-feito" maxlength="500"
+             placeholder="Ex.: conferi os autos; peticionei pedindo a expedição da RPV">
+      <div class="linha-acoes" style="margin-top:7px">
+        <label for="g-marco" style="margin:0;font-weight:500">Próximo marco</label>
+        <input type="date" id="g-marco" style="width:auto">
+        <button id="g-registrar" class="primario">Registrar diligência</button>
+        <span class="nota" id="g-hoje"></span>
+      </div>
+      <p class="nota" style="margin:5px 0 0">Cada registro conta para a meta do dia no Painel do
+        setor e usa a condição escolhida acima. Diligência feita não é objetivo atingido.</p>
+    </div>
     <div><label for="g-gatilho">Passar para outra carteira</label><select id="g-gatilho">
       <option value="">— escolha o ato obtido —</option></select>
       <p class="nota" id="g-destino" style="margin:5px 0 0"></p></div>
@@ -1164,13 +1180,99 @@ function abrirGaveta(npu) {
   $("#g-condicao").value = p.condicao || "";
   montarGatilhos(p);
   const movs = movsDe(npu).reverse();
-  $("#g-corpo").innerHTML = movs.length ? movs.map(m => {
+  $("#g-corpo").innerHTML = `<h3 class="g-titulo">Diligências registradas</h3><div id="g-provs">
+      <div class="hist"><p style="color:var(--muted)">Carregando…</p></div></div>
+    <h3 class="g-titulo">Andamentos do PJe</h3>` + (movs.length ? movs.map(m => {
     const selo = m.tipo ? `<span class="selo ${CLASSE_TIPO[m.tipo] || "sneutro"}">${esc(ROTULO_TIPO[m.tipo] || m.tipo)}</span>` : "";
     const grau = `<span class="selo sgrau">${m.grau === "2" ? "2º grau" : "1º grau"}</span>`;
     return `<div class="hist"><time>${esc(ddhh(m.data))}</time><p>${selo}${grau} ${esc(m.texto)}</p></div>`;
-  }).join("") : '<div class="hist"><p style="color:var(--muted)">Nenhum andamento registrado para este processo.</p></div>';
+  }).join("") : '<div class="hist"><p style="color:var(--muted)">Nenhum andamento registrado para este processo.</p></div>');
+  $("#g-feito").value = ""; $("#g-marco").value = "";
+  $("#g-registrar").disabled = !DG.escreve() || !p.id;
+  pintarHoje();
+  carregarProvidencias(p);
   $("#gaveta").hidden = false; $("#fundo").hidden = false;
 }
+
+// ------------------------------------------------------------ diligências do dia
+// A diligência é a providência registrada: o que a pessoa fez no processo hoje.
+// É ela que conta para a meta de 15 por dia no Painel do setor (item 4.1), e não
+// o objetivo atingido. Sobe pela mesma fila das outras alterações, então funciona
+// mesmo com a internet caindo.
+let provsGaveta = [], feitasHoje = 0;
+const hojeLocal = () => { const d = new Date(); return `${d.getFullYear()}-${z2(d.getMonth() + 1)}-${z2(d.getDate())}`; };
+const metaDiaria = () => (DG.eu && DG.eu.meta_diaria) || 15;
+// o banco devolve o horário em UTC; aqui ele vira o horário de quem está olhando
+const quandoLocal = iso => {
+  const t = new Date(iso);
+  return isNaN(t) ? "" : `${dd(t)} ${z2(t.getHours())}:${z2(t.getMinutes())}`;
+};
+const ROTULO_CONDICAO = { atuar: "Atuar", validar: "Validar", monitorar: "Monitorar", espera: "Espera", interno: "Interno" };
+
+function pintarHoje() {
+  const el = $("#g-hoje");
+  if (el) el.textContent = `Hoje: ${feitasHoje} de ${metaDiaria()}`;
+}
+
+async function contarHoje() {
+  if (!DG.meuId()) return;
+  try {
+    const l = await DG.ler(`/v_metas?select=providencias&membro_id=eq.${DG.meuId()}&dia=eq.${hojeLocal()}`);
+    feitasHoje = (l && l[0] && l[0].providencias) || 0;
+  } catch { /* sem conexão: fica o que já foi contado aqui */ }
+  pintarHoje();
+}
+
+async function carregarProvidencias(p) {
+  provsGaveta = [];
+  if (p.id) {
+    try {
+      provsGaveta = await DG.ler(`/providencias?select=*&processo_id=eq.${p.id}&order=em.desc&limit=30`) || [];
+    } catch (e) {
+      $("#g-provs").innerHTML = `<div class="hist"><p style="color:var(--muted)">Não consegui carregar: ${esc(e.message)}</p></div>`;
+      return;
+    }
+  }
+  if (gavetaNpu === p.npu) pintarProvidencias();
+}
+
+function pintarProvidencias() {
+  const alvo = $("#g-provs");
+  if (!alvo) return;
+  alvo.innerHTML = provsGaveta.length ? provsGaveta.map(d => `<div class="hist">
+      <time>${esc(quandoLocal(d.em))}</time>
+      · <span class="nota">${esc(nomeDeMembro(d.por))}</span>
+      <p>${d.condicao ? `<span class="selo sneutro">${esc(ROTULO_CONDICAO[d.condicao] || d.condicao)}</span>` : ""}${esc(d.texto)}
+      ${d.proximo_marco ? `<br><span class="nota">próximo marco: ${esc(dd(paraData(d.proximo_marco)))}</span>` : ""}</p>
+    </div>`).join("")
+    : '<div class="hist"><p style="color:var(--muted)">Nenhuma diligência registrada ainda.</p></div>';
+}
+
+function registrarDiligencia() {
+  const p = BD.processos[gavetaNpu];
+  if (!p || !p.id) return;
+  const texto = $("#g-feito").value.replace(/\s+/g, " ").trim();
+  if (!texto) {
+    avisar("Escreva em poucas palavras o que foi feito antes de registrar.", true);
+    $("#g-feito").focus();
+    return;
+  }
+  const condicao = $("#g-condicao").value || null;
+  const linha = { processo_id: p.id, por: DG.meuId(), texto, condicao,
+                  proximo_marco: $("#g-marco").value || null };
+  DG.enfileirar({ metodo: "POST", caminho: "/rest/v1/providencias", corpo: linha });
+  // conferiu os autos: o ritmo de revisão recomeça daqui
+  p.revisado_em = carimbarAgora();
+  if (condicao) p.condicao = condicao;
+  gravar();
+  provsGaveta.unshift({ ...linha, em: new Date().toISOString() });
+  feitasHoje++;
+  pintarProvidencias(); pintarHoje();
+  $("#g-feito").value = ""; $("#g-marco").value = "";
+  avisar(`Diligência registrada em ${mascara(p.npu)}. Hoje: ${feitasHoje} de ${metaDiaria()}.`);
+}
+$("#g-registrar").addEventListener("click", registrarDiligencia);
+$("#g-feito").addEventListener("keydown", e => { if (e.key === "Enter") registrarDiligencia(); });
 function fecharGaveta() { $("#gaveta").hidden = true; $("#fundo").hidden = true; gavetaNpu = ""; }
 $("#grade-corpo").addEventListener("click", e => {
   const b = e.target.closest("button[data-npu]");
@@ -2788,7 +2890,7 @@ async function desenharPainel() {
   try {
     const [painel, metas] = await Promise.all([
       DG.ler("/v_painel?select=*&order=nome"),
-      DG.ler(`/v_metas?select=*&dia=eq.${new Date().toISOString().slice(0, 10)}`),
+      DG.ler(`/v_metas?select=*&dia=eq.${hojeLocal()}`),
     ]);
     const porPessoa = Object.fromEntries(metas.map(m => [m.membro_id, m]));
     const linhas = painel.filter(l => l.processos > 0).map(l => {
@@ -3017,6 +3119,7 @@ async function abrirSistema() {
   try { desenhar(); }
   catch (e) { console.error(e); avisar("Algo deu errado ao desenhar a tela; recarregue a página.", true); }
   desenharPassagens();
+  contarHoje();
   mostrarTela("carteiras");
   if (!BD.ordem.length && DG.escreve()) {
     avisar("A base está vazia. Abra “Importar base” e carregue a aba da sua carteira "

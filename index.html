@@ -66,8 +66,8 @@
                   animation: porta-entra .45s cubic-bezier(.2,.7,.3,1) both; }
   @keyframes porta-entra { from { opacity: 0; transform: translateY(10px) scale(.992); } }
 
-  .porta-marca { position: relative; padding: 40px 34px 32px; color: #f7efe1;
-                 display: flex; flex-direction: column;
+  .porta-marca { position: relative; padding: 44px 34px 40px; color: #f7efe1;
+                 display: flex; flex-direction: column; justify-content: center;
                  background: linear-gradient(158deg, #4a361b 0%, #2c2012 52%, #1b1409 100%); }
   .porta-marca::after { content: ""; position: absolute; inset: 0; pointer-events: none;
                         background: radial-gradient(420px 300px at 78% 4%,
@@ -84,8 +84,6 @@
   .porta-regua { width: 54px; height: 1px; margin: 22px 0 18px; background: #d8a95e; opacity: .85; }
   .porta-marca .diz { margin: 0; max-width: 33ch; font-size: 13.5px; line-height: 1.6; color: #d8ccb7; }
   .porta-marca .diz b { color: #f7efe1; font-weight: 600; }
-  .porta-pe { margin: auto 0 0; padding-top: 26px; font-family: var(--mono);
-              font-size: 11px; letter-spacing: .05em; color: #9c8b72; }
 
   .porta-forma { display: flex; flex-direction: column; padding: 42px 36px 34px; }
   .porta h2 { margin: 0 0 5px; font-size: 22px; letter-spacing: -.015em; }
@@ -121,12 +119,13 @@
     .porta-cartao { max-width: none; min-height: 100%; grid-template-columns: 1fr;
                     grid-template-rows: auto 1fr; align-content: start;
                     border: 0; border-radius: 0; box-shadow: none; }
-    .porta-marca { flex-direction: row; align-items: center; gap: 16px; padding: 24px 22px; }
+    .porta-marca { flex-direction: row; align-items: center; gap: 16px; padding: 24px 22px;
+                   justify-content: flex-start; }
     .porta-logo { width: 62px; height: 62px; margin: 0; flex: none; }
     .porta-logo img { width: 56px; height: 56px; }
     .porta-marca h1 { font-size: 19px; }
     .porta-marca h1 span { margin-top: 5px; font-size: 10px; }
-    .porta-regua, .porta-marca .diz, .porta-pe { display: none; }
+    .porta-regua, .porta-marca .diz { display: none; }
     .porta-forma { padding: 28px 20px 32px; }
     .porta .trocar { font-size: 12.5px; }
   }
@@ -426,9 +425,8 @@
       </div>
       <h1>Guimarães &amp; Lacerda<span>Advogados</span></h1>
       <div class="porta-regua" aria-hidden="true"></div>
-      <p class="diz"><b>DiliGLA</b> é onde o Setor de Diligências registra o que foi pedido,
-        o que já foi obtido e de quem é cada carteira.</p>
-      <p class="porta-pe">PJe TJPE · 1º e 2º graus</p>
+      <p class="diz"><b>DiliGLA</b> é onde o Setor de Diligências registra o andamento
+        das diligências divididas por carteiras.</p>
     </aside>
 
     <div class="porta-forma">

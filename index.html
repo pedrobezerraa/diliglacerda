@@ -151,6 +151,85 @@
   .navegacao .conta { margin-left: 6px; background: var(--red); color: #fff; border-radius: 99px;
                       font-size: 11px; padding: 1px 6px; font-weight: 700; }
 
+  /* ---- divisão das carteiras ---- */
+  .bloco-divisao { margin: 26px 0 0; }
+  .bloco-divisao:first-child { margin-top: 0; }
+  .bloco-divisao > h3 { margin: 0 0 3px; font-size: 16px; }
+  .bloco-divisao > .nota { margin: 0 0 13px; max-width: 86ch; }
+  /* a matriz costuma passar da largura da tela; rola sozinha em vez de espremer */
+  .rolagem-larga { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-m);
+                   background: var(--surface); box-shadow: var(--shadow-s); }
+  .rolagem-larga > .tabela-simples { min-width: 100%; }
+  .rolagem-larga th:first-child, .rolagem-larga td:first-child { padding-left: 15px; }
+  .rolagem-larga th:last-child, .rolagem-larga td:last-child { padding-right: 15px; }
+  .tabela-simples tfoot td, .tabela-simples tfoot th { border-top: 2px solid var(--line-2);
+                                                       border-bottom: 0; font-weight: 700; }
+  .tabela-simples td.forte { font-weight: 700; }
+  .tabela-simples td.vaga, .tabela-simples .vaga { color: var(--faint); font-weight: 400; }
+  .tabela-simples tr.sem-nada td, .tabela-simples tr.sem-nada th { color: var(--faint); }
+  /* o cabeçalho da tabela é caixa-alta; o nome de uma pessoa não deve ser.
+     A coluna dos nomes gruda na borda esquerda: numa matriz que rola de lado,
+     o número do meio não diz nada se o nome já saiu da tela. */
+  .matriz th[scope="row"] { font-weight: 600; white-space: nowrap; text-transform: none;
+                            font-size: .84rem; letter-spacing: 0;
+                            position: sticky; left: 0; z-index: 1;
+                            box-shadow: 1px 0 0 var(--line); }
+  .matriz thead th:first-child { position: sticky; left: 0; z-index: 2;
+                                 box-shadow: 1px 0 0 var(--line); }
+  /* O cabeçalho não quebra: deixar a matriz ficar larga e rolar é melhor do que
+     espremer "CONHECIMENTO" numa coluna de uma letra por linha. */
+  .matriz thead th.num { font-size: 11px; vertical-align: bottom; white-space: nowrap; }
+  /* a barrinha diz o peso da carteira dentro da carteira da própria pessoa:
+     dois "12" podem significar coisas bem diferentes em cima de 20 e de 200 */
+  .matriz td.num .fatia { display: block; height: 3px; margin: 3px auto 0; width: var(--f);
+                          min-width: 2px; background: var(--gold-2); border-radius: 2px;
+                          opacity: .75; }
+  .elo { background: none; border: 0; padding: 0; font: inherit; font-weight: 600;
+         color: var(--gold); border-bottom: 1px solid rgba(138,106,47,.3); border-radius: 0; }
+  .elo:hover { color: var(--gold-2); border-bottom-color: var(--gold-2); }
+
+  details.pessoa { background: var(--surface); border: 1px solid var(--line);
+                   border-radius: var(--r-m); box-shadow: var(--shadow-s); margin-bottom: 9px; }
+  details.pessoa > summary { padding: 12px 15px; cursor: pointer; display: flex;
+                             align-items: center; gap: 9px; flex-wrap: wrap; list-style: none; }
+  details.pessoa > summary::-webkit-details-marker { display: none; }
+  details.pessoa > summary::before { content: "▸"; color: var(--faint); font-size: 12px; }
+  details.pessoa[open] > summary::before { content: "▾"; }
+  details.pessoa[open] > summary { border-bottom: 1px solid var(--line); }
+  details.pessoa summary b { font-size: 15px; }
+  details.pessoa summary .conta { font-size: .74rem; font-weight: 700; padding: 1px 8px;
+                                  border-radius: 99px; background: var(--gold-soft); color: var(--gold); }
+  details.pessoa summary .mini { font-size: .78rem; color: var(--muted); margin-left: auto;
+                                 text-align: right; }
+  .pessoa-corpo { padding: 4px 15px 14px; }
+  .grupo-carteira { margin-top: 12px; }
+  .grupo-carteira h4 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase;
+                       letter-spacing: .05em; color: var(--ink-2); display: flex;
+                       align-items: center; gap: 7px; }
+  .grupo-carteira h4 .conta { font-size: 11px; color: var(--muted); background: var(--sunken);
+                              border-radius: 99px; padding: 1px 7px; letter-spacing: 0; }
+  ul.processos { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line);
+                 border-radius: var(--r-s); overflow: hidden; }
+  ul.processos li + li { border-top: 1px solid var(--line); }
+  .linha-proc { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left;
+                background: none; border: 0; border-radius: 0; padding: 7px 11px; font: inherit; }
+  .linha-proc:hover { background: var(--gold-soft); }
+  .linha-proc .npu { font-family: var(--mono); font-size: .8rem; white-space: nowrap; }
+  .linha-proc .obj { font-size: .82rem; color: var(--ink-2); overflow: hidden;
+                     text-overflow: ellipsis; white-space: nowrap; }
+  .etiqueta.propria { background: var(--sunken); color: var(--muted); }
+
+  .glossario { display: grid; gap: 11px; grid-template-columns: repeat(auto-fill, minmax(282px, 1fr)); }
+  .verbete { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-m);
+             padding: 14px 16px; box-shadow: var(--shadow-s); }
+  .verbete.dormindo { background: var(--sunken); box-shadow: none; }
+  .verbete h4 { margin: 0 0 7px; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+  .verbete h4 .conta { font-size: .74rem; font-weight: 700; padding: 1px 8px; border-radius: 99px;
+                       background: var(--gold-soft); color: var(--gold); margin-left: auto; }
+  .verbete .enq { margin: 0 0 6px; font-size: .84rem; line-height: 1.5; }
+  .verbete .fun { margin: 0 0 6px; font-size: .84rem; line-height: 1.5; color: var(--ink-2); }
+  .verbete .com { margin: 0; font-size: .78rem; color: var(--muted); }
+
   /* ---- passagens, equipe e painel ---- */
   .cartoes { display: grid; gap: 12px; }
   .cartao { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-m);
@@ -510,6 +589,7 @@
   </div>
   <nav class="navegacao" id="navegacao" hidden>
     <button data-tela="carteiras" aria-current="true">Carteiras</button>
+    <button data-tela="divisao">Divisão das Carteiras</button>
     <button data-tela="passagens">Passagens<span class="conta" id="conta-passagens" hidden>0</span></button>
     <button data-tela="painel" id="nav-painel" hidden>Painel do setor</button>
     <button data-tela="equipe" id="nav-equipe" hidden>Equipe</button>
@@ -635,6 +715,15 @@
   </div>
 
   <!-- ====================================================== painel do setor -->
+  <!-- ================================================= divisão das carteiras -->
+  <div id="tela-divisao" hidden>
+    <h2 style="margin:18px 0 4px;font-size:18px">Divisão das Carteiras</h2>
+    <p class="nota" style="margin:0 0 16px">Quantos e quais processos estão com cada
+      integrante, em que carteira estratégica cada um deles se enquadra e o que cada
+      carteira quer dizer. Sai do que já está carregado na tela: não consulta o banco.</p>
+    <div id="divisao-corpo"></div>
+  </div>
+
   <div id="tela-painel" hidden>
     <h2 style="margin:18px 0 4px;font-size:18px">Painel do setor</h2>
     <p class="nota" style="margin:0 0 16px">É o que alimenta o relatório de sexta-feira.</p>
@@ -2852,7 +2941,7 @@ $("#g-propor").addEventListener("click", async () => {
 // A grade de carteiras é a tela de sempre. As três novas — passagens, painel
 // do setor e equipe — são irmãs dela e trocam pelo menu do topo.
 let telaAtiva = "carteiras";
-const TELAS = ["carteiras", "passagens", "painel", "equipe"];
+const TELAS = ["carteiras", "divisao", "passagens", "painel", "equipe"];
 
 function mostrarTela(nome) {
   telaAtiva = nome;
@@ -2862,6 +2951,7 @@ function mostrarTela(nome) {
   }
   $("#abas").hidden = nome !== "carteiras";
   for (const b of $$("#navegacao button")) b.setAttribute("aria-current", String(b.dataset.tela === nome));
+  if (nome === "divisao")   desenharDivisao();
   if (nome === "passagens") desenharPassagens();
   if (nome === "painel")    desenharPainel();
   if (nome === "equipe")    desenharEquipe();
@@ -3080,6 +3170,231 @@ async function recarregarPassagens() {
 }
 
 // ========================================================== painel do setor
+// ============================================== divisão das carteiras
+// "Carteira" quer dizer duas coisas no setor, e esta tela existe para que as
+// duas parem de se confundir: a carteira-pessoa é o que está na mão de cada
+// integrante — é o que as abas mostram —, e a carteira estratégica (Presença,
+// Viva, Expansão…) classifica o processo por enquadramento e função. O bloco é
+// uma terceira coisa ainda: custódia temporária, com etiqueta de origem que
+// acompanha o processo mesmo quando ele troca de mão.
+//
+// Tudo aqui sai do BD que já está na memória: a tela abre sem ir ao banco.
+
+const CATEGORIA_NOME = { propria: "própria", tutelada: "tutelada", realocada: "realocada" };
+const SEM_CARTEIRA = "Sem carteira estratégica";
+
+// A tabela de referência manda na ordem e nos textos. Uma carteira que veio na
+// planilha e que ainda não foi cadastrada não pode sumir da conta só por isso:
+// ela entra no fim, sem enquadramento, e fica visível que falta cadastrar.
+function carteirasConhecidas() {
+  const daRef = ((window.DGS && DGS.ref && DGS.ref.carteiras) || [])
+    .filter(c => c.ativa !== false)
+    .slice().sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
+    .map(c => ({ nome: c.nome, enquadramento: c.enquadramento || "", funcao: c.funcao || "",
+                 cadastrada: true }));
+  const vistas = new Set(daRef.map(c => c.nome));
+  for (const n of BD.ordem || []) {
+    const nome = (BD.processos[n] || {}).carteira || "";
+    if (nome && !vistas.has(nome)) {
+      vistas.add(nome);
+      daRef.push({ nome, enquadramento: "", funcao: "", cadastrada: false });
+    }
+  }
+  return daRef;
+}
+
+function desenharDivisao() {
+  const alvo = $("#divisao-corpo");
+  const reg = n => BD.processos[n] || {};
+  const todos = (BD.ordem || []).filter(n => BD.processos[n]);
+
+  if (!todos.length) {
+    alvo.innerHTML = `<p class="vazio-tela">Ainda não há processos para dividir.
+      Importe a planilha da base em “Importar base”, no topo.</p>`;
+    return;
+  }
+
+  const carteiras = carteirasConhecidas();
+  const pessoas   = abas();
+  const daPessoa  = Object.fromEntries(pessoas.map(p => [p, daAba(p)]));
+  const carteiraDe = n => reg(n).carteira || SEM_CARTEIRA;
+  const usaSemCarteira = todos.some(n => !reg(n).carteira);
+  const colunas = carteiras.map(c => c.nome).concat(usaSemCarteira ? [SEM_CARTEIRA] : []);
+
+  const contar = (lista, f) => lista.reduce((s, n) => s + (f(reg(n), n) ? 1 : 0), 0);
+  const naCarteira = (lista, nome) => lista.filter(n => carteiraDe(n) === nome);
+
+  // ------------------------------------------------------------ resumo
+  const naoProprios = contar(todos, p => p.categoria && p.categoria !== "propria");
+  const comCarteira = pessoas.filter(p => daPessoa[p].length).length;
+  const emUso = colunas.filter(c => naCarteira(todos, c).length).length;
+  const blocosEmUso = new Set(todos.map(n => reg(n).bloco_codigo).filter(Boolean)).size;
+  const tiles = [
+    [todos.length, "Processos no setor"],
+    [comCarteira, comCarteira === 1 ? "Pessoa com carteira" : "Pessoas com carteira"],
+    [emUso, "Carteiras estratégicas em uso"],
+    [naoProprios, "Tutelados ou realocados"],
+    [blocosEmUso, "Blocos de custódia abertos"],
+  ].map(([n, r]) => `<div><b>${n}</b><span>${r}</span></div>`).join("");
+
+  // --------------------------------------- matriz pessoa × carteira
+  const celula = (q, dentro) => q
+    ? `<td class="num">${q}<i class="fatia" style="--f:${Math.round(q * 100 / Math.max(dentro, 1))}%"></i></td>`
+    : `<td class="num vaga">·</td>`;
+
+  const linhas = pessoas.map(p => {
+    const meus = daPessoa[p];
+    if (!meus.length) {
+      return `<tr class="sem-nada"><th scope="row">${esc(p)}</th>
+        <td class="num vaga" colspan="${colunas.length + 2}">sem processos nesta base</td></tr>`;
+    }
+    const cels = colunas.map(c => celula(naCarteira(meus, c).length, meus.length)).join("");
+    const naoMeus = contar(meus, x => x.categoria && x.categoria !== "propria");
+    return `<tr><th scope="row"><button class="elo" data-pessoa="${esc(p)}"
+              title="Abrir a aba de ${esc(p)}">${esc(p)}</button></th>
+      ${cels}
+      <td class="num">${naoMeus || `<span class="vaga">·</span>`}</td>
+      <td class="num forte">${meus.length}</td></tr>`;
+  }).join("");
+
+  const rodape = `<tr class="somatorio"><th scope="row">Setor</th>
+    ${colunas.map(c => `<td class="num">${naCarteira(todos, c).length || "·"}</td>`).join("")}
+    <td class="num">${naoProprios}</td><td class="num forte">${todos.length}</td></tr>`;
+
+  const matriz = `<div class="rolagem-larga"><table class="tabela-simples matriz">
+    <thead><tr><th>Quem</th>
+      ${colunas.map(c => `<th class="num" title="${esc(c)}">${esc(c)}</th>`).join("")}
+      <th class="num" title="Processos que não são da carteira própria da pessoa">Não próprios</th>
+      <th class="num">Total</th></tr></thead>
+    <tbody>${linhas}</tbody><tfoot>${rodape}</tfoot></table></div>`;
+
+  // ------------------------------------------- detalhe de cada pessoa
+  const pri = p => `<span class="pri ${p.prioridade ? CLASSE_PRI[p.prioridade] : "vazia"}"
+    >${esc(p.prioridade || "—")}</span>`;
+  const detalhe = pessoas.filter(p => daPessoa[p].length).map(p => {
+    const meus = daPessoa[p];
+    const porCarteira = colunas
+      .map(c => [c, naCarteira(meus, c)])
+      .filter(([, l]) => l.length)
+      .sort((a, b) => b[1].length - a[1].length);
+    const resumo = porCarteira.map(([c, l]) => `${esc(c)} ${l.length}`).join(" · ");
+
+    const grupos = porCarteira.map(([c, l]) => `
+      <div class="grupo-carteira">
+        <h4>${esc(c)}<span class="conta">${l.length}</span></h4>
+        <ul class="processos">${l.map(n => {
+          const x = reg(n);
+          return `<li><button class="linha-proc" data-npu="${esc(n)}"
+              title="Abrir o histórico deste processo">
+            <span class="npu">${esc(mascara(n))}</span>
+            ${pri(x)}
+            ${x.bloco_codigo ? `<span class="etiqueta ${esc(x.categoria || "propria")}"
+               title="${esc(x.bloco || "")}${x.origem_bloco ? " · origem: " + esc(x.origem_bloco) : ""}"
+               >${esc(x.bloco_codigo)}</span>` : ""}
+            <span class="obj">${esc(x.objetivo || "sem objetivo registrado")}</span>
+          </button></li>`;
+        }).join("")}</ul>
+      </div>`).join("");
+
+    return `<details class="pessoa"><summary>
+        <b>${esc(p)}</b><span class="conta">${meus.length}</span>
+        <span class="mini">${resumo}</span></summary>
+      <div class="pessoa-corpo">${grupos}</div></details>`;
+  }).join("");
+
+  // ---------------------------------------- o que são as carteiras
+  const verbetes = carteiras.map(c => {
+    const l = naCarteira(todos, c.nome);
+    const com = pessoas.map(p => [p, naCarteira(daPessoa[p], c.nome).length])
+      .filter(([, q]) => q).sort((a, b) => b[1] - a[1])
+      .map(([p, q]) => `${esc(p)} ${q}`).join(" · ");
+    return `<article class="verbete${l.length ? "" : " dormindo"}">
+      <h4>${esc(c.nome)}<span class="conta">${l.length}</span></h4>
+      ${c.enquadramento ? `<p class="enq">${esc(c.enquadramento)}</p>` : ""}
+      ${c.funcao ? `<p class="fun"><b>Serve para:</b> ${esc(c.funcao)}</p>` : ""}
+      ${c.cadastrada ? "" : `<p class="fun"><b>Veio da planilha</b> e ainda não está
+        cadastrada na tabela de carteiras.</p>`}
+      <p class="com">${com ? "Com " + com : "Sem processos no momento."}</p></article>`;
+  }).join("");
+
+  // ------------------------------------------------ blocos de custódia
+  const refBlocos = ((window.DGS && DGS.ref && DGS.ref.blocos) || [])
+    .slice().sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+  const linhasBloco = refBlocos.map(b => {
+    const l = todos.filter(n => reg(n).bloco_codigo === b.codigo);
+    const com = pessoas.map(p => [p, daPessoa[p].filter(n => reg(n).bloco_codigo === b.codigo).length])
+      .filter(([, q]) => q).sort((a, b2) => b2[1] - a[1])
+      .map(([p, q]) => `${esc(p)} ${q}`).join(" · ");
+    const falta = b.previstos == null ? null : l.length - b.previstos;
+    return `<tr class="${l.length ? "" : "sem-nada"}">
+      <td><b>${esc(b.codigo)}</b></td>
+      <td>${esc(b.nome)}<span class="carteira-rotulo">origem: ${esc(b.origem || "—")}</span></td>
+      <td><span class="etiqueta ${esc(b.natureza || "tutelada")}">${esc(b.natureza || "—")}</span></td>
+      <td>${esc(b.custodiante_apelido || "—")}</td>
+      <td class="num">${b.previstos == null ? "—" : b.previstos}</td>
+      <td class="num forte">${l.length}</td>
+      <td class="num">${falta == null ? "—"
+        : falta === 0 ? `<span class="vaga">em dia</span>`
+        : `<span style="color:var(--${falta > 0 ? "azul" : "amber"})">${falta > 0 ? "+" : ""}${falta}</span>`}</td>
+      <td>${com || `<span class="vaga">—</span>`}</td></tr>`;
+  }).join("");
+
+  const tabelaBlocos = refBlocos.length ? `<div class="rolagem-larga">
+    <table class="tabela-simples"><thead><tr>
+      <th>Bloco</th><th>O que é</th><th>Natureza</th><th>Custodiante previsto</th>
+      <th class="num">Previstos</th><th class="num">Hoje</th><th class="num">Diferença</th>
+      <th>Com quem está</th></tr></thead><tbody>${linhasBloco}</tbody></table></div>`
+    : `<p class="nota">Nenhum bloco cadastrado.</p>`;
+
+  // -------------------------------------------------------------- tela
+  alvo.innerHTML = `
+    <div class="resumo">${tiles}</div>
+
+    <section class="bloco-divisao">
+      <h3>Quem está com o quê</h3>
+      <p class="nota">Cada linha é a carteira-pessoa de alguém; cada coluna, uma carteira
+        estratégica. A barrinha sob o número mostra o peso daquela carteira dentro da
+        carteira da própria pessoa. Clique no nome para abrir a aba.</p>
+      ${matriz}
+    </section>
+
+    <section class="bloco-divisao">
+      <h3>Quais processos, um por um</h3>
+      <p class="nota">Abra um nome para ver a lista, agrupada por carteira estratégica e
+        ordenada por prioridade. A etiqueta ao lado do número é o bloco de custódia, quando
+        houver. Clique num processo para abrir o histórico dele.</p>
+      ${detalhe}
+    </section>
+
+    <section class="bloco-divisao">
+      <h3>O que são as carteiras</h3>
+      <p class="nota">O quadro de classificação estratégica: o enquadramento diz que processo
+        entra, e a função diz para que a carteira existe. Isto não se confunde com a
+        carteira-pessoa acima — um processo tem uma carteira estratégica e está com alguém.</p>
+      <div class="glossario">${verbetes}</div>
+    </section>
+
+    <section class="bloco-divisao">
+      <h3>Blocos de custódia</h3>
+      <p class="nota">Custódia temporária. A etiqueta de origem fica com o processo mesmo
+        quando ele troca de mão, e é por ela que a devolução ao titular definitivo é feita.
+        “Previstos” é a quantidade do plano de 13/11; “hoje” é o que a base tem agora.</p>
+      ${tabelaBlocos}
+    </section>`;
+}
+
+$("#tela-divisao").addEventListener("click", e => {
+  const proc = e.target.closest("button[data-npu]");
+  if (proc) { abrirGaveta(proc.dataset.npu); return; }
+  const pessoa = e.target.closest("button[data-pessoa]");
+  if (pessoa) {
+    abaAtiva = pessoa.dataset.pessoa;
+    filtroPri = "";
+    mostrarTela("carteiras");
+    desenhar();
+  }
+});
+
 async function desenharPainel() {
   const alvo = $("#painel-corpo");
   alvo.innerHTML = `<p class="vazio-tela">Somando…</p>`;

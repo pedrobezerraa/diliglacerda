@@ -27,7 +27,7 @@
     --ring: 0 0 0 3px rgba(176,134,54,.18);
     --alt: 34px;                       /* altura única de todo controle */
     --r-s: 9px; --r-m: 14px; --r-l: 20px;
-    --w-trilho: 74px; --recuo-abas: calc(var(--w-trilho) + 22px);
+    --w-trilho: 64px; --recuo-abas: calc(var(--w-trilho) + 30px);
     --sans: "IBM Plex Sans", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
     --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
     --col-npu: 200px; --col-fase: 136px; --col-juizo: 186px; --col-objetivo: 212px;
@@ -156,20 +156,27 @@
      sai do campo de leitura e vira ícone com uma palavra, e o cabeçalho perde
      uma faixa inteira. --h-topo é medido no carregamento: o cabeçalho muda de
      altura quando os botões quebram de linha, e o trilho gruda logo abaixo. */
-  .corpo { max-width: 1560px; margin: 0 auto; display: flex; align-items: flex-start; }
-  .trilho { flex: none; width: var(--w-trilho); position: sticky; top: var(--h-topo, 118px);
-            padding: 14px 0 14px 10px; }
-  .navegacao { display: flex; flex-direction: column; gap: 3px; }
-  .navegacao button { position: relative; display: flex; flex-direction: column; align-items: center;
-                      gap: 5px; padding: 9px 4px 8px; border: 1px solid transparent; background: none;
-                      color: var(--muted); font-size: 10.5px; font-weight: 600; letter-spacing: .01em;
-                      border-radius: var(--r-m); line-height: 1.2; text-align: center; }
+  /* O trilho fica preso na borda da janela, e não dentro da coluna de conteúdo:
+     é para ele sair do campo de leitura, não para ladear o texto. O conteúdo
+     reserva a largura dele e segue centrado. */
+  .corpo { max-width: calc(1560px + var(--w-trilho)); margin: 0 auto;
+           padding-left: var(--w-trilho); }
+  .trilho { position: fixed; left: 0; top: var(--h-topo, 118px); bottom: 0; width: var(--w-trilho);
+            padding: 12px 0 0; z-index: 35; }
+  .navegacao { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  /* sem legenda: o nome vive no title e, para quem usa leitor de tela, no span
+     escondido — que some da vista sem sumir da árvore de acessibilidade */
+  .navegacao button { position: relative; display: grid; place-items: center; width: 42px; height: 42px;
+                      padding: 0; border: 1px solid transparent; background: none; color: var(--faint);
+                      border-radius: var(--r-m); }
+  .navegacao button span { position: absolute; width: 1px; height: 1px; overflow: hidden;
+                           clip-path: inset(50%); white-space: nowrap; }
   .navegacao button svg { width: 21px; height: 21px; }
   .navegacao button:hover { background: var(--sunken); color: var(--ink-2); }
   .navegacao button[aria-current="true"] { background: var(--surface); border-color: var(--line);
                                            color: var(--gold); box-shadow: var(--shadow-s); }
   .navegacao button[aria-current="true"] svg { stroke-width: 2; }
-  .navegacao .conta { position: absolute; top: 5px; right: 11px; background: var(--red); color: #fff;
+  .navegacao .conta { position: absolute; top: 3px; right: 3px; background: var(--red); color: #fff;
                       border-radius: 99px; font-size: 10px; line-height: 1.5; padding: 0 5px;
                       font-weight: 700; font-style: normal; box-shadow: 0 0 0 2px var(--canvas); }
 
@@ -345,7 +352,7 @@
   /* ---- abas dos estagiários ---- */
   /* Eram abas de pasta, com borda de três lados, encostando em nada: a grade
      fica num cartão próprio mais abaixo. Pastilha resolve melhor e lê mais limpo. */
-  .abas { max-width: 1560px; margin: 0 auto; padding: 9px 22px 11px var(--recuo-abas);
+  .abas { max-width: 1560px; margin: 0 auto; padding: 6px 22px 8px var(--recuo-abas);
           display: flex; gap: 4px; align-items: center; overflow-x: auto; }
   .abas button { border: 1px solid transparent; background: transparent; color: var(--ink-2);
                  padding: 7px 15px; font-size: .9rem; font-weight: 500; border-radius: 99px;
@@ -357,7 +364,7 @@
                                        color: var(--gold); font-weight: 600; box-shadow: var(--shadow-s); }
   .abas button[aria-selected="true"] .conta { background: var(--gold-soft); color: var(--gold); }
 
-  main { flex: 1; min-width: 0; padding: 18px 22px 90px; }
+  main { min-width: 0; padding: 18px 22px 90px 30px; }
 
   /* ---- barra de ações da aba ---- */
   .barra { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
@@ -399,18 +406,17 @@
                      100% { box-shadow: 0 0 0 0 rgba(36,95,143,0); } }
 
   /* ---- faixa de números ---- */
-  .resumo { display: grid; grid-template-columns: repeat(auto-fit, minmax(146px, 1fr));
-            gap: 10px; margin-bottom: 16px; }
-  .resumo div { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-m);
-                padding: 13px 16px 12px; box-shadow: var(--shadow-s);
-                transition: box-shadow .16s ease, transform .16s ease; }
-  .resumo div:hover { box-shadow: var(--shadow-m); transform: translateY(-1px); }
-  .resumo b { display: block; font-size: 1.7rem; font-weight: 600; line-height: 1.1;
-              letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-  /* o rótulo em versalete some do caminho do número, que é o que se lê primeiro */
-  .resumo span { display: block; margin-top: 4px; font-size: .68rem; color: var(--muted);
-                 text-transform: uppercase; letter-spacing: .07em; font-weight: 600; }
+  /* uma linha, não sete caixas: o número continua à mão e para de disputar a
+     tela com a grade, que é o que a pessoa veio ver */
+  .resumo { display: flex; flex-wrap: wrap; align-items: baseline; margin-bottom: 12px;
+            font-size: .8rem; color: var(--muted); }
+  .resumo span { display: inline-flex; align-items: baseline; gap: 5px; padding: 2px 15px; }
+  .resumo span:first-child { padding-left: 0; }
+  .resumo span + span { border-left: 1px solid var(--line-2); }
+  .resumo b { font-size: 1.02rem; font-weight: 700; color: var(--ink);
+              font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
   .resumo .destaque b { color: var(--green); }
+  .resumo .alerta b { color: var(--red); }
 
   /* ---- a grade, tipo planilha ---- */
   .quadro { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-m);
@@ -490,10 +496,20 @@
            font-weight: 600; text-decoration: none; border-bottom: 1px solid var(--line-2);
            border-radius: 0; line-height: 1.5; }
   .abrir:hover { color: var(--gold); border-bottom-color: var(--gold-2); }
-  .btn-dilig { border: 1px solid var(--line-2); background: var(--surface); color: var(--gold);
-               border-radius: 999px; padding: 1px 9px; font-size: .72rem; font-weight: 600;
-               line-height: 1.5; cursor: pointer; }
-  .btn-dilig:not(:disabled):hover { border-color: var(--gold); }
+  /* Em repouso é texto; a pastilha só se desenha quando o mouse está na linha.
+     Repetido em todas as linhas, o contorno virava um padrão que puxava o olho
+     mais que o próprio processo. Onde não há mouse, fica sempre desenhado. */
+  .btn-dilig { border: 1px solid transparent; background: none; color: var(--faint);
+               border-radius: 999px; padding: 1px 9px; margin-left: -9px; font-size: .72rem;
+               font-weight: 600; line-height: 1.5; cursor: pointer; }
+  .btn-dilig:not(:disabled):hover { border-color: var(--gold); color: var(--gold); }
+  @media (hover: hover) {
+    table.grade tbody tr:hover .btn-dilig { border-color: var(--line-2);
+                                            background: var(--surface); color: var(--gold); }
+  }
+  @media (hover: none) {
+    .btn-dilig { border-color: var(--line-2); background: var(--surface); color: var(--gold); }
+  }
   .btn-dilig:hover { background: var(--gold); border-color: var(--gold); color: var(--surface); }
   .btn-dilig.feita { border-color: var(--green); color: var(--green); background: var(--green-soft); }
   .btn-dilig.feita:hover { background: var(--green); color: var(--surface); }
@@ -511,8 +527,10 @@
   .mov p { margin: 1px 0 0; font-size: .78rem; line-height: 1.38; color: var(--ink-2);
            display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .mov.novo { background: var(--green-soft); box-shadow: 2px 0 0 var(--green) inset; }
-  td.nada { background: repeating-linear-gradient(135deg, transparent, transparent 7px, #f6f0e6 7px, #f6f0e6 8px) !important; }
-  tbody tr:hover td.nada { background: repeating-linear-gradient(135deg, var(--gold-soft), var(--gold-soft) 7px, #ecdcbe 7px, #ecdcbe 8px) !important; }
+  /* "não houve andamento neste dia" é a maior parte da grade: a hachura precisa
+     dizer isso de longe sem virar textura na tela inteira */
+  td.nada { background: repeating-linear-gradient(135deg, transparent, transparent 9px, #faf5ec 9px, #faf5ec 10px) !important; }
+  tbody tr:hover td.nada { background: repeating-linear-gradient(135deg, #fbf3e4, #fbf3e4 9px, #f3e7d0 9px, #f3e7d0 10px) !important; }
 
   .selo { font-size: .67rem; font-weight: 700; padding: 1px 7px; border-radius: 99px; letter-spacing: .02em;
           white-space: nowrap; display: inline-block; }
@@ -617,15 +635,15 @@
      alcança, e a tela estreita não tem 82px de sobra na lateral. */
   @media (max-width: 860px) {
     :root { --recuo-abas: 22px; }
-    .corpo { display: block; }
+    .corpo { padding-left: 0; }
     .trilho { position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: auto; z-index: 45;
               padding: 0; background: var(--surface); border-top: 1px solid var(--line);
               box-shadow: 0 -6px 20px -12px rgba(20,16,10,.4);
               padding-bottom: env(safe-area-inset-bottom, 0); }
-    .navegacao { flex-direction: row; gap: 0; justify-content: space-around; padding: 5px 4px; }
-    .navegacao button { flex: 1 1 0; border-radius: var(--r-s); padding: 7px 2px 6px; }
+    .navegacao { flex-direction: row; gap: 0; justify-content: space-around; padding: 6px 4px; }
+    .navegacao button { flex: 1 1 0; width: auto; height: 42px; border-radius: var(--r-s); }
     .navegacao .conta { right: calc(50% - 20px); top: 2px; box-shadow: 0 0 0 2px var(--surface); }
-    main { padding-bottom: 86px; }
+    main { padding-bottom: 86px; padding-left: 13px; }
   }
   @media (max-width: 760px) {
     .topo, .abas, main { padding-left: 13px; padding-right: 13px; }
@@ -689,7 +707,7 @@
       </div>
       <div class="direita">
         <button id="relatorio" class="primario">Puxar relatório</button>
-        <button id="relatorio-objetivos" class="primario" title="Relatório de objetivos da aba aberta, em folha A4 para imprimir ou salvar em PDF">Relatório de objetivos</button>
+          <button id="relatorio-objetivos" class="secundario" title="Relatório de objetivos da aba aberta, em folha A4 para imprimir ou salvar em PDF">Relatório de objetivos</button>
         <button id="relatorio-csv" class="secundario" hidden title="Saída em CSV, sem depender do gerador de planilhas">Baixar em CSV</button>
         <button id="abrir-importar" class="secundario">Importar base</button>
         <span class="eu" id="eu" hidden>
@@ -791,7 +809,7 @@
   <!-- ações da aba -->
   <div class="barra">
     <button id="ver24" class="primario">Últimas 24h</button>
-    <button id="ver72" class="primario contorno">Últimas 72h</button>
+    <button id="ver72" class="secundario">Últimas 72h</button>
     <button id="parar" class="secundario" hidden>Parar</button>
     <button id="refazer" class="secundario" hidden>Refazer falhas</button>
     <button id="limpar-vis" class="secundario" title="Esvazia a tela sem apagar a base nem o histórico das outras abas">Limpar visualização</button>
@@ -1427,16 +1445,19 @@ function desenhar() {
   const novosAgora = consulta.em
     ? todos.reduce((s, n) => s + movsDe(n).filter(m => m.captado === consulta.em).length, 0) : 0;
   const falhas = todos.filter(n => (BD.processos[n] || {}).erro).length;
+  // Eram sete fichas em caixa, cada uma com o peso de um título, empurrando a
+  // grade para baixo. São os mesmos sete números, agora numa linha só: quem
+  // precisa deles acha, e quem veio trabalhar não esbarra neles.
   $("#resumo").innerHTML = [
-    ["Processos na aba", todos.length, ""],
-    ["Com movimentação", comMov, ""],
-    ["Andamentos registrados", totalMov, ""],
-    ["Novos na última consulta", novosAgora, novosAgora ? "destaque" : ""],
-    ["Objetivos atingidos", todos.filter(n => (BD.processos[n] || {}).atingido).length, ""],
-    ["Sem resposta do PJe", falhas, ""],
-  ].map(([r, v, c]) => `<div class="${c}"><b>${v}</b><span>${esc(r)}</span></div>`).join("")
-    + `<div class="${feitasHoje >= metaDiaria() ? "" : "destaque"}"><b id="placar-dilig">${feitasHoje} de ${metaDiaria()}</b>`
-    + `<span>Suas diligências hoje</span></div>`;
+    ["na aba", todos.length, ""],
+    ["com movimentação", comMov, ""],
+    ["andamentos", totalMov, ""],
+    ["novos na consulta", novosAgora, novosAgora ? "destaque" : ""],
+    ["objetivos atingidos", todos.filter(n => (BD.processos[n] || {}).atingido).length, ""],
+    ["sem resposta do PJe", falhas, falhas ? "alerta" : ""],
+  ].map(([r, v, c]) => `<span class="${c}"><b>${v}</b>${esc(r)}</span>`).join("")
+    + `<span class="${feitasHoje >= metaDiaria() ? "" : "destaque"}">`
+    + `<b id="placar-dilig">${feitasHoje} de ${metaDiaria()}</b>diligências suas hoje</span>`;
 
   $("#refazer").hidden = !falhas || verificando;
   if (!verificando) {
@@ -3368,12 +3389,12 @@ function desenharDivisao() {
   const emUso = colunas.filter(c => naCarteira(todos, c).length).length;
   const blocosEmUso = new Set(todos.map(n => reg(n).bloco_codigo).filter(Boolean)).size;
   const tiles = [
-    [todos.length, "Processos no setor"],
-    [comCarteira, comCarteira === 1 ? "Pessoa com carteira" : "Pessoas com carteira"],
-    [emUso, "Carteiras estratégicas em uso"],
-    [naoProprios, "Tutelados ou realocados"],
-    [blocosEmUso, "Blocos de custódia abertos"],
-  ].map(([n, r]) => `<div><b>${n}</b><span>${r}</span></div>`).join("");
+    [todos.length, "processos no setor"],
+    [comCarteira, comCarteira === 1 ? "pessoa com carteira" : "pessoas com carteira"],
+    [emUso, "carteiras estratégicas em uso"],
+    [naoProprios, "tutelados ou realocados"],
+    [blocosEmUso, "blocos de custódia abertos"],
+  ].map(([n, r]) => `<span><b>${n}</b>${r}</span>`).join("");
 
   // --------------------------------------- matriz pessoa × carteira
   const celula = (q, dentro) => q

@@ -70,6 +70,31 @@ item 5 do plano estão em `gatilhos`. O sistema lê o texto do andamento,
 reconhece o ato e sugere; quem decide é a pessoa; e nada se move sem o aceite de
 quem recebe.
 
+## Várias pessoas ao mesmo tempo
+
+Pode. O setor inteiro pode estar dentro ao mesmo tempo, e o que cada um altera
+é gravado.
+
+Cada alteração sobe como um `PATCH` de **uma linha só e só dos campos que
+mudaram**, comparados com o espelho do que o banco tinha quando a página
+abriu. Daí:
+
+- duas pessoas em processos diferentes nunca se encontram;
+- duas pessoas em campos diferentes do mesmo processo também não — uma mexe na
+  observação, a outra na fase, e as duas coisas ficam;
+- no mesmo campo do mesmo processo, quem gravar por último vence. Não há
+  travamento de linha, e não deveria haver: a carteira é de alguém.
+
+Quem pode alterar o quê é decidido pelo RLS no banco, e não pela tela.
+
+**A tela não se atualiza sozinha.** Ela é uma fotografia do momento em que a
+página abriu. De minuto em minuto, e toda vez que você volta para a aba, a
+DiliGLA pergunta ao banco se alguém mexeu depois e, se mexeu, oferece
+recarregar numa faixa azul no alto. Ela não recarrega por conta própria: isso
+jogaria fora o que está na tela no meio de uma digitação. Enquanto houver
+alteração sua na fila de envio, o aviso não aparece e a atualização fica
+bloqueada — primeiro sobe o que é seu.
+
 ## O que a planilha semanal manda, e o que ela não encosta
 
 A importação atualiza responsável, grupo, matéria, carteira, bloco, fase, valor,

@@ -27,6 +27,7 @@
     --ring: 0 0 0 3px rgba(176,134,54,.18);
     --alt: 34px;                       /* altura única de todo controle */
     --r-s: 9px; --r-m: 14px; --r-l: 20px;
+    --w-trilho: 74px; --recuo-abas: calc(var(--w-trilho) + 22px);
     --sans: "IBM Plex Sans", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
     --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
     --col-npu: 200px; --col-fase: 136px; --col-juizo: 186px; --col-objetivo: 212px;
@@ -150,15 +151,27 @@
   .sinal i { width: 7px; height: 7px; border-radius: 99px; background: var(--green); display: inline-block; }
   .sinal.pendente i { background: var(--amber); }
 
-  /* ---- navegação entre telas ---- */
-  .navegacao { max-width: 1560px; margin: 0 auto; padding: 2px 22px 0; display: flex; gap: 2px;
-               overflow-x: auto; }
-  .navegacao button { background: none; border: 0; border-bottom: 2px solid transparent;
-                      padding: 9px 13px; color: var(--muted); font-weight: 600; font-size: 14px;
-                      border-radius: 0; white-space: nowrap; flex: none; }
-  .navegacao button[aria-current="true"] { color: var(--ink); border-bottom-color: var(--marca); }
-  .navegacao .conta { margin-left: 6px; background: var(--red); color: #fff; border-radius: 99px;
-                      font-size: 11px; padding: 1px 6px; font-weight: 700; }
+  /* ---- trilho de navegação ---- */
+  /* Eram cinco rótulos numa fileira em cima da grade. Em trilho, o nome da tela
+     sai do campo de leitura e vira ícone com uma palavra, e o cabeçalho perde
+     uma faixa inteira. --h-topo é medido no carregamento: o cabeçalho muda de
+     altura quando os botões quebram de linha, e o trilho gruda logo abaixo. */
+  .corpo { max-width: 1560px; margin: 0 auto; display: flex; align-items: flex-start; }
+  .trilho { flex: none; width: var(--w-trilho); position: sticky; top: var(--h-topo, 118px);
+            padding: 14px 0 14px 10px; }
+  .navegacao { display: flex; flex-direction: column; gap: 3px; }
+  .navegacao button { position: relative; display: flex; flex-direction: column; align-items: center;
+                      gap: 5px; padding: 9px 4px 8px; border: 1px solid transparent; background: none;
+                      color: var(--muted); font-size: 10.5px; font-weight: 600; letter-spacing: .01em;
+                      border-radius: var(--r-m); line-height: 1.2; text-align: center; }
+  .navegacao button svg { width: 21px; height: 21px; }
+  .navegacao button:hover { background: var(--sunken); color: var(--ink-2); }
+  .navegacao button[aria-current="true"] { background: var(--surface); border-color: var(--line);
+                                           color: var(--gold); box-shadow: var(--shadow-s); }
+  .navegacao button[aria-current="true"] svg { stroke-width: 2; }
+  .navegacao .conta { position: absolute; top: 5px; right: 11px; background: var(--red); color: #fff;
+                      border-radius: 99px; font-size: 10px; line-height: 1.5; padding: 0 5px;
+                      font-weight: 700; font-style: normal; box-shadow: 0 0 0 2px var(--canvas); }
 
   /* ---- divisão das carteiras ---- */
   .bloco-divisao { margin: 26px 0 0; }
@@ -332,8 +345,8 @@
   /* ---- abas dos estagiários ---- */
   /* Eram abas de pasta, com borda de três lados, encostando em nada: a grade
      fica num cartão próprio mais abaixo. Pastilha resolve melhor e lê mais limpo. */
-  .abas { max-width: 1560px; margin: 0 auto; padding: 9px 22px 11px; display: flex; gap: 4px;
-          align-items: center; overflow-x: auto; }
+  .abas { max-width: 1560px; margin: 0 auto; padding: 9px 22px 11px var(--recuo-abas);
+          display: flex; gap: 4px; align-items: center; overflow-x: auto; }
   .abas button { border: 1px solid transparent; background: transparent; color: var(--ink-2);
                  padding: 7px 15px; font-size: .9rem; font-weight: 500; border-radius: 99px;
                  white-space: nowrap; display: inline-flex; align-items: center; gap: 8px; }
@@ -344,7 +357,7 @@
                                        color: var(--gold); font-weight: 600; box-shadow: var(--shadow-s); }
   .abas button[aria-selected="true"] .conta { background: var(--gold-soft); color: var(--gold); }
 
-  main { max-width: 1560px; margin: 0 auto; padding: 18px 22px 90px; }
+  main { flex: 1; min-width: 0; padding: 18px 22px 90px; }
 
   /* ---- barra de ações da aba ---- */
   .barra { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
@@ -371,6 +384,19 @@
            border-radius: var(--r-m); padding: 11px 15px; font-size: .86rem; margin-bottom: 14px;
            box-shadow: var(--shadow-s); }
   .aviso.ruim { background: var(--red-soft); border-color: #eec4c0; color: #7d2525; }
+  /* a tela é uma fotografia do momento em que a página abriu; esta faixa é o
+     aviso de que a fotografia envelheceu */
+  .novidade { display: flex; align-items: center; gap: 11px; flex-wrap: wrap;
+              background: var(--azul-soft); border: 1px solid #c8dcef; color: #1d4e75;
+              border-radius: var(--r-m); padding: 10px 14px; font-size: .87rem;
+              margin-bottom: 14px; box-shadow: var(--shadow-s);
+              animation: porta-entra .3s ease both; }
+  .novidade button { margin-left: 0; }
+  .novidade #novidade-atualizar { margin-left: auto; }
+  .novidade .pulso { width: 8px; height: 8px; border-radius: 99px; background: var(--azul); flex: none;
+                     box-shadow: 0 0 0 0 rgba(36,95,143,.5); animation: pulsa 2s ease-out infinite; }
+  @keyframes pulsa { 70% { box-shadow: 0 0 0 7px rgba(36,95,143,0); }
+                     100% { box-shadow: 0 0 0 0 rgba(36,95,143,0); } }
 
   /* ---- faixa de números ---- */
   .resumo { display: grid; grid-template-columns: repeat(auto-fit, minmax(146px, 1fr));
@@ -587,6 +613,20 @@
   .hist p { margin: 4px 0 0; font-size: .85rem; line-height: 1.45; }
   .hist .selo { margin-right: 6px; }
 
+  /* Abaixo de 860px o trilho desce e vira barra no pé: é onde o polegar
+     alcança, e a tela estreita não tem 82px de sobra na lateral. */
+  @media (max-width: 860px) {
+    :root { --recuo-abas: 22px; }
+    .corpo { display: block; }
+    .trilho { position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: auto; z-index: 45;
+              padding: 0; background: var(--surface); border-top: 1px solid var(--line);
+              box-shadow: 0 -6px 20px -12px rgba(20,16,10,.4);
+              padding-bottom: env(safe-area-inset-bottom, 0); }
+    .navegacao { flex-direction: row; gap: 0; justify-content: space-around; padding: 5px 4px; }
+    .navegacao button { flex: 1 1 0; border-radius: var(--r-s); padding: 7px 2px 6px; }
+    .navegacao .conta { right: calc(50% - 20px); top: 2px; box-shadow: 0 0 0 2px var(--surface); }
+    main { padding-bottom: 86px; }
+  }
   @media (max-width: 760px) {
     .topo, .abas, main { padding-left: 13px; padding-right: 13px; }
     :root { --col-npu: 164px; --col-fase: 112px; --col-juizo: 124px; --col-objetivo: 140px;
@@ -660,17 +700,30 @@
       </div>
     </div>
   </div>
-  <nav class="navegacao" id="navegacao" hidden>
-    <button data-tela="carteiras" aria-current="true">Carteiras</button>
-    <button data-tela="divisao">Divisão das Carteiras</button>
-    <button data-tela="passagens">Passagens<span class="conta" id="conta-passagens" hidden>0</span></button>
-    <button data-tela="painel" id="nav-painel" hidden>Painel do setor</button>
-    <button data-tela="equipe" id="nav-equipe" hidden>Equipe</button>
-  </nav>
   <div class="abas" id="abas" role="tablist" aria-label="Carteiras"></div>
 </header>
 
+<div class="corpo">
+
+<!-- O trilho substitui a fileira de abas que ficava no cabeçalho. Em tela
+     estreita ele desce e vira barra no pé, que é onde o polegar alcança. -->
+<aside class="trilho">
+  <nav class="navegacao" id="navegacao" hidden aria-label="Telas">
+    <button data-tela="carteiras" title="Carteiras" aria-current="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h18v12H3z"/><path d="M3 11h18"/><path d="M9 7V5h6v2"/></svg><span>Carteiras</span></button>
+    <button data-tela="divisao" title="Divisão das Carteiras"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2.6" width="6" height="5" rx="1.3"/><rect x="2.4" y="16.4" width="6" height="5" rx="1.3"/><rect x="15.6" y="16.4" width="6" height="5" rx="1.3"/><path d="M12 7.6v3.4"/><path d="M5.4 16.4V11h13.2v5.4"/></svg><span>Divisão</span></button>
+    <button data-tela="passagens" title="Passagens entre carteiras"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h13l-3-3"/><path d="M20 16H7l3 3"/></svg><span>Passagens</span><i class="conta" id="conta-passagens" hidden>0</i></button>
+    <button data-tela="painel" title="Painel do setor" id="nav-painel" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M21 20H3"/></svg><span>Painel</span></button>
+    <button data-tela="equipe" title="Equipe" id="nav-equipe" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a5 5 0 0 1 10 0v1"/><path d="M16 5.2a3 3 0 0 1 0 5.6"/><path d="M18 20v-1a5 5 0 0 0-2-4"/></svg><span>Equipe</span></button>
+  </nav>
+</aside>
+
 <main>
+  <div class="novidade" id="novidade" hidden>
+    <span class="pulso" aria-hidden="true"></span>
+    <span id="novidade-txt">Alguém alterou a base depois que esta tela abriu.</span>
+    <button class="primario" id="novidade-atualizar">Atualizar</button>
+    <button class="secundario" id="novidade-depois">Agora não</button>
+  </div>
   <div class="aviso" id="aviso" hidden></div>
   <div id="tela-carteiras">
 
@@ -813,6 +866,7 @@
     <div id="equipe-corpo"></div>
   </div>
 </main>
+</div><!-- /corpo -->
 
 <datalist id="lista-fases"></datalist>
 <div class="fundo" id="fundo" hidden></div>
@@ -3016,6 +3070,17 @@ $("#g-propor").addEventListener("click", async () => {
 let telaAtiva = "carteiras";
 const TELAS = ["carteiras", "divisao", "passagens", "painel", "equipe"];
 
+// O cabeçalho é grudado no topo e muda de altura quando os botões quebram de
+// linha. O trilho gruda logo abaixo dele, então precisa do número medido, e não
+// de um palpite em CSS.
+function medirTopo() {
+  const h = $("header");
+  if (h) document.documentElement.style.setProperty("--h-topo", h.offsetHeight + "px");
+}
+if (window.ResizeObserver) new ResizeObserver(medirTopo).observe($("header"));
+else window.addEventListener("resize", medirTopo);
+medirTopo();
+
 function mostrarTela(nome) {
   telaAtiva = nome;
   for (const t of TELAS) {
@@ -3705,11 +3770,83 @@ async function abrirSistema() {
   desenharPassagens();
   contarHoje();
   mostrarTela("carteiras");
+  vigiarBase();
   if (!BD.ordem.length && DG.escreve()) {
     avisar("A base está vazia. Abra “Importar base” e carregue a aba da sua carteira "
          + "da planilha de carteiras completas.");
   }
 }
+
+// ================================================ várias pessoas ao mesmo tempo
+// Trabalhar junto já funcionava: cada alteração sobe como um PATCH só dos campos
+// que mudaram de uma linha só, comparados com o espelho do que o banco tinha.
+// Duas pessoas em processos diferentes nunca se encontram, e em campos
+// diferentes do mesmo processo também não — quem escreve por último num mesmo
+// campo é que vence, e isso é o esperado.
+//
+// O que faltava era saber que o outro mexeu. A tela é uma fotografia do momento
+// em que a página abriu, e ficava assim a manhã inteira. Daqui em diante ela
+// pergunta ao banco, de minuto em minuto e ao voltar para a aba, se alguém
+// mexeu depois, e oferece recarregar. Não recarrega sozinha: isso jogaria fora
+// o que a pessoa tem na tela e assustaria no meio de uma digitação.
+let marcaBase = "";
+
+const lerMarcaBase = async () => {
+  const l = await DG.ler("/v_processos?select=atualizado_em&order=atualizado_em.desc&limit=1");
+  return (l && l[0] && l[0].atualizado_em) || "";
+};
+
+// Depois que a nossa própria fila esvazia, o relógio do banco já conta as nossas
+// alterações: remarcar aqui evita avisar a pessoa sobre o que ela mesma fez.
+async function remarcarBase() {
+  try { marcaBase = await lerMarcaBase(); } catch { /* sem rede; fica como está */ }
+}
+
+async function olharNovidade() {
+  if (!DG.logado || DG.pendentes || document.hidden || !$("#novidade").hidden) return;
+  try {
+    const agora = await lerMarcaBase();
+    if (marcaBase && agora && agora > marcaBase) $("#novidade").hidden = false;
+  } catch { /* sem rede: a fila e o aviso de conexão já cuidam disso */ }
+}
+
+$("#novidade-depois").addEventListener("click", async () => {
+  $("#novidade").hidden = true;
+  await remarcarBase();          // não insistir na mesma novidade
+});
+
+$("#novidade-atualizar").addEventListener("click", async () => {
+  if (DG.pendentes) { avisar("Ainda há alteração sua por enviar; espere o “salvo” e tente de novo.", true); return; }
+  const b = $("#novidade-atualizar");
+  b.disabled = true; b.textContent = "Atualizando…";
+  const aba = abaAtiva;
+  await carregar();
+  if (abas().includes(aba)) abaAtiva = aba;
+  await remarcarBase();
+  $("#novidade").hidden = true;
+  b.disabled = false; b.textContent = "Atualizar";
+  try { desenhar(); } catch (e) { console.error(e); }
+  desenharPassagens();
+  if (telaAtiva !== "carteiras") mostrarTela(telaAtiva);
+  avisar("Tela atualizada com o que está no banco agora.");
+});
+
+let vigiaLigado = false;
+function vigiarBase() {
+  if (vigiaLigado) return;
+  vigiaLigado = true;
+  remarcarBase();
+  setInterval(olharNovidade, 60000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) olharNovidade(); });
+}
+// A fila avisa a cada item que entra e sai; remarcar a cada aviso seriam várias
+// consultas por segundo enquanto alguém digita numa célula.
+let tempoRemarcar = null;
+DG.ao("fila", n => {
+  if (n) return;
+  clearTimeout(tempoRemarcar);
+  tempoRemarcar = setTimeout(remarcarBase, 2500);
+});
 
 DG.ao("fila", () => mostrarEspaco());
 DG.ao("recusado", ({ erro }) => avisar(`O banco recusou uma alteração: ${erro}`, true));

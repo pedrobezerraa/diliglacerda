@@ -48,24 +48,88 @@
   .selo.spassagem { background: var(--amber-soft); color: var(--amber); }
 
   /* ---- entrada ---- */
-  .porta { position: fixed; inset: 0; z-index: 90; background: var(--canvas);
-           display: grid; place-items: center; padding: 24px; }
-  .porta-cartao { width: 100%; max-width: 408px; background: var(--surface);
-                  border: 1px solid var(--line); border-radius: var(--r-l);
-                  box-shadow: var(--shadow-l); padding: 30px 28px 26px; }
-  .porta-marca { display: flex; align-items: center; gap: 11px; margin-bottom: 20px; }
-  .porta h2 { margin: 0 0 4px; font-size: 19px; }
-  .porta p.nota { margin: 0 0 18px; }
-  .porta label { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink-2);
-                 margin: 0 0 5px; }
-  .porta input { width: 100%; padding: 9px 11px; border: 1px solid var(--line-2);
-                 border-radius: var(--r-s); font: inherit; background: var(--raised); }
-  .porta .campo { margin-bottom: 13px; }
-  .porta .linha-acoes { display: flex; gap: 9px; align-items: center; margin-top: 18px; }
-  .porta .erro { background: var(--red-soft); color: var(--red); border-radius: var(--r-s);
-                 padding: 9px 11px; font-size: 13.5px; margin-bottom: 13px; }
-  .porta .trocar { background: none; border: 0; color: var(--gold); font-size: 13px;
-                   padding: 0; text-decoration: underline; }
+  /* A porta é a única tela que alguém de fora vê, então ela carrega a marca do
+     escritório por inteiro: medalhão à esquerda, formulário à direita. Abaixo de
+     720px os dois lados viram uma coluna só e a faixa da marca encolhe. */
+  .porta { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center;
+           padding: 24px; overflow: auto;
+           background: radial-gradient(1100px 620px at 10% -12%, #fdf8ee 0%, transparent 62%),
+                       radial-gradient(900px 520px at 106% 114%, #f1e3cb 0%, transparent 60%),
+                       var(--canvas); }
+  .porta::before { content: ""; position: absolute; inset: 0; pointer-events: none;
+                   background: repeating-linear-gradient(135deg, transparent 0 13px,
+                               rgba(173,124,58,.05) 13px 14px); }
+  .porta-cartao { position: relative; width: 100%; max-width: 880px;
+                  display: grid; grid-template-columns: 1fr 1fr;
+                  background: var(--surface); border: 1px solid var(--line);
+                  border-radius: var(--r-l); box-shadow: var(--shadow-l); overflow: hidden;
+                  animation: porta-entra .45s cubic-bezier(.2,.7,.3,1) both; }
+  @keyframes porta-entra { from { opacity: 0; transform: translateY(10px) scale(.992); } }
+
+  .porta-marca { position: relative; padding: 40px 34px 32px; color: #f7efe1;
+                 display: flex; flex-direction: column;
+                 background: linear-gradient(158deg, #4a361b 0%, #2c2012 52%, #1b1409 100%); }
+  .porta-marca::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+                        background: radial-gradient(420px 300px at 78% 4%,
+                                    rgba(216,169,94,.26), transparent 70%); }
+  .porta-marca > * { position: relative; z-index: 1; }
+  .porta-logo { width: 120px; height: 120px; border-radius: 50%; background: #fff;
+                display: grid; place-items: center; margin-bottom: 26px;
+                box-shadow: 0 16px 36px -16px rgba(0,0,0,.65), 0 0 0 1px rgba(216,169,94,.4); }
+  .porta-logo img { width: 96px; height: 96px; display: block; }
+  .porta-marca h1 { margin: 0; font-size: 25px; font-weight: 600; line-height: 1.18;
+                    letter-spacing: -.012em; }
+  .porta-marca h1 span { display: block; margin-top: 9px; font-size: 11.5px; font-weight: 600;
+                         letter-spacing: .22em; text-transform: uppercase; color: #d8a95e; }
+  .porta-regua { width: 54px; height: 1px; margin: 22px 0 18px; background: #d8a95e; opacity: .85; }
+  .porta-marca .diz { margin: 0; max-width: 33ch; font-size: 13.5px; line-height: 1.6; color: #d8ccb7; }
+  .porta-marca .diz b { color: #f7efe1; font-weight: 600; }
+  .porta-pe { margin: auto 0 0; padding-top: 26px; font-family: var(--mono);
+              font-size: 11px; letter-spacing: .05em; color: #9c8b72; }
+
+  .porta-forma { display: flex; flex-direction: column; padding: 42px 36px 34px; }
+  .porta h2 { margin: 0 0 5px; font-size: 22px; letter-spacing: -.015em; }
+  .porta p.nota { margin: 0 0 22px; }
+  .porta label { display: block; font-size: 11.5px; font-weight: 600; color: var(--ink-2);
+                 letter-spacing: .04em; text-transform: uppercase; margin: 0 0 6px; }
+  .porta input { width: 100%; padding: 11px 13px; border: 1px solid var(--line-2);
+                 border-radius: var(--r-s); font: inherit; color: var(--ink);
+                 background: var(--raised);
+                 transition: border-color .15s, box-shadow .15s, background .15s; }
+  .porta input:hover { border-color: var(--line-3); }
+  .porta input:focus { outline: 0; background: var(--surface); border-color: var(--gold-2);
+                       box-shadow: 0 0 0 3px rgba(176,134,54,.16); }
+  .porta input:-webkit-autofill { -webkit-text-fill-color: var(--ink);
+                                  box-shadow: 0 0 0 40px var(--raised) inset; }
+  .porta .campo { margin-bottom: 15px; }
+  .porta .primario { width: 100%; margin-top: 8px; padding: 12px 18px; font-size: 15px;
+                     box-shadow: var(--shadow-s); }
+  .porta .linha-acoes { display: flex; gap: 12px; align-items: center;
+                        justify-content: space-between; margin-top: 18px;
+                        padding-top: 15px; border-top: 1px solid var(--line); }
+  .porta .erro { background: var(--red-soft); color: var(--red); border: 1px solid #f0cec9;
+                 border-radius: var(--r-s); padding: 10px 12px; font-size: 13.5px;
+                 margin-bottom: 15px; }
+  .porta .trocar { background: none; border: 0; border-bottom: 1px solid rgba(138,106,47,.35);
+                   border-radius: 0; color: var(--gold); font-size: 13px; padding: 2px 0;
+                   text-decoration: none; }
+  .porta .trocar:hover { color: var(--gold-2); border-bottom-color: var(--gold-2); }
+
+  @media (prefers-reduced-motion: reduce) { .porta-cartao { animation: none; } }
+  @media (max-width: 720px) {
+    .porta { padding: 0; place-items: stretch; }
+    .porta-cartao { max-width: none; min-height: 100%; grid-template-columns: 1fr;
+                    grid-template-rows: auto 1fr; align-content: start;
+                    border: 0; border-radius: 0; box-shadow: none; }
+    .porta-marca { flex-direction: row; align-items: center; gap: 16px; padding: 24px 22px; }
+    .porta-logo { width: 62px; height: 62px; margin: 0; flex: none; }
+    .porta-logo img { width: 56px; height: 56px; }
+    .porta-marca h1 { font-size: 19px; }
+    .porta-marca h1 span { margin-top: 5px; font-size: 10px; }
+    .porta-regua, .porta-marca .diz, .porta-pe { display: none; }
+    .porta-forma { padding: 28px 20px 32px; }
+    .porta .trocar { font-size: 12.5px; }
+  }
 
   /* ---- quem está logado e estado da gravação ---- */
   .eu { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--muted); }
@@ -355,32 +419,41 @@
 <!-- porta de entrada: nada da aplicação aparece antes de saber quem é -->
 <div class="porta" id="porta" hidden>
   <div class="porta-cartao">
-    <div class="porta-marca">
-      <div class="selo-marca" aria-hidden="true">DG</div>
-      <div><h1 style="margin:0;font-size:21px">Dili<b>GLA</b></h1>
-           <p style="margin:0;font-size:12.5px;color:var(--muted)">Setor de Diligências</p></div>
-    </div>
-    <h2 id="porta-titulo">Entrar</h2>
-    <p class="nota" id="porta-sub">Use o e-mail do escritório.</p>
-    <div class="erro" id="porta-erro" hidden></div>
-    <div class="campo" id="campo-nome" hidden>
-      <label for="porta-nome">Nome completo</label>
-      <input type="text" id="porta-nome" autocomplete="name">
-    </div>
-    <div class="campo">
-      <label for="porta-email">E-mail</label>
-      <input type="email" id="porta-email" autocomplete="username" inputmode="email">
-    </div>
-    <div class="campo">
-      <label for="porta-senha">Senha</label>
-      <input type="password" id="porta-senha" autocomplete="current-password">
-    </div>
-    <div class="linha-acoes">
+
+    <aside class="porta-marca">
+      <div class="porta-logo">
+        <img src="img/gla.png" alt="Guimarães &amp; Lacerda Advogados" width="96" height="96">
+      </div>
+      <h1>Guimarães &amp; Lacerda<span>Advogados</span></h1>
+      <div class="porta-regua" aria-hidden="true"></div>
+      <p class="diz"><b>DiliGLA</b> é onde o Setor de Diligências registra o que foi pedido,
+        o que já foi obtido e de quem é cada carteira.</p>
+      <p class="porta-pe">PJe TJPE · 1º e 2º graus</p>
+    </aside>
+
+    <div class="porta-forma">
+      <h2 id="porta-titulo">Entrar</h2>
+      <p class="nota" id="porta-sub">Use o e-mail do escritório.</p>
+      <div class="erro" id="porta-erro" hidden></div>
+      <div class="campo" id="campo-nome" hidden>
+        <label for="porta-nome">Nome completo</label>
+        <input type="text" id="porta-nome" autocomplete="name">
+      </div>
+      <div class="campo">
+        <label for="porta-email">E-mail</label>
+        <input type="email" id="porta-email" autocomplete="username" inputmode="email">
+      </div>
+      <div class="campo">
+        <label for="porta-senha">Senha</label>
+        <input type="password" id="porta-senha" autocomplete="current-password">
+      </div>
       <button class="primario" id="porta-entrar">Entrar</button>
-      <button class="trocar" id="porta-modo">Criar conta</button>
-      <span class="vazio-flex"></span>
-      <button class="trocar" id="porta-esqueci">Esqueci a senha</button>
+      <div class="linha-acoes">
+        <button class="trocar" id="porta-modo">Criar conta</button>
+        <button class="trocar" id="porta-esqueci">Esqueci a senha</button>
+      </div>
     </div>
+
   </div>
 </div>
 

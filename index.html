@@ -414,6 +414,46 @@
   @keyframes pulsa { 70% { box-shadow: 0 0 0 7px rgba(36,95,143,0); }
                      100% { box-shadow: 0 0 0 0 rgba(36,95,143,0); } }
 
+
+  /* ---- pauta ---- */
+  .selo.spauta { background: var(--azul-soft); color: var(--azul); }
+  .selo.grande { font-size: .76rem; padding: 3px 11px; }
+  .pauta-busca { display: flex; gap: 10px; flex-wrap: wrap; max-width: 640px; }
+  .pauta-busca input { flex: 1 1 280px; font: 500 .95rem var(--mono); letter-spacing: -.01em; padding: 9px 13px;
+                       border: 1px solid var(--line-2); border-radius: var(--r-s); background: var(--surface); }
+  .pauta-busca input:focus { outline: 0; border-color: var(--gold-2); box-shadow: var(--ring); }
+  .pauta-barra { margin-bottom: 12px; }
+  .pauta-barra label { display: inline-flex; align-items: center; gap: 8px; font-size: .84rem; color: var(--ink-2); }
+  .pauta-tabela td { vertical-align: top; }
+  .pauta-tabela .npu-elo { font-family: var(--mono); font-size: .8rem; white-space: nowrap; }
+  .pauta-tabela small { display: block; margin-top: 3px; font-size: .74rem; color: var(--muted); }
+  .pauta-tabela .grupo-rotulo { color: var(--gold); font-weight: 600; }
+  .pauta-tabela .obj-pauta { font-size: .82rem; max-width: 360px; }
+  .pauta-tabela .sessao b { font-size: .82rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pauta-tabela .quando-pauta { font-size: .76rem; color: var(--muted); white-space: nowrap; }
+  .pauta-tabela .acoes-pauta { white-space: nowrap; text-align: right; }
+  .pauta-tabela .acoes-pauta .secundario { padding: 4px 10px; font-size: .78rem; }
+  .pauta-tabela tr.aberta td { background: var(--gold-soft); border-bottom-color: transparent; }
+  .pauta-tabela tr.pauta-detalhe td { background: var(--raised); padding: 6px 15px 18px; }
+  .resultado-pauta { margin-top: 14px; max-width: 920px; }
+  #pauta-avulso .resultado-pauta { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-m);
+                                   padding: 16px 18px; box-shadow: var(--shadow-s); }
+  .resultado-pauta .cabeca { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .resultado-pauta .mono { font-family: var(--mono); font-size: .82rem; color: var(--muted); }
+  .resultado-pauta .resumo-txt { margin: 10px 0 0; font-size: .95rem; line-height: 1.5; }
+  .resultado-pauta h4 { margin: 16px 0 8px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .pauta-avisos { margin: 10px 0 0; padding-left: 18px; color: var(--amber); font-size: .82rem; }
+  .linha-tempo { list-style: none; margin: 0; padding: 0; }
+  .linha-tempo li { border-left: 3px solid var(--line-2); padding: 1px 0 12px 14px; }
+  .linha-tempo li.t-inclusao_em_pauta, .linha-tempo li.t-pedido_de_inclusao { border-color: var(--green); }
+  .linha-tempo li.t-adiamento, .linha-tempo li.t-retirada_de_pauta { border-color: var(--amber); }
+  .linha-tempo li.t-resultado_julgamento { border-color: var(--roxo); }
+  .linha-tempo .quando { font-weight: 600; font-size: .86rem; }
+  .linha-tempo .meta { font-size: .78rem; color: var(--muted); }
+  .linha-tempo .trecho { font-size: .82rem; color: var(--ink-2); margin-top: 3px; line-height: 1.45; }
+  .linha-tempo a, .pauta-fontes a { color: var(--gold); font-size: .8rem; font-weight: 600; }
+  .pauta-fontes { display: flex; gap: 6px 16px; flex-wrap: wrap; margin-top: 14px; font-size: .78rem; color: var(--muted); }
+
   /* ---- faixa de números ---- */
   /* uma linha, não sete caixas: o número continua à mão e para de disputar a
      tela com a grade, que é o que a pessoa veio ver */
@@ -520,7 +560,9 @@
     .btn-dilig { border-color: var(--line-2); background: var(--surface); color: var(--gold); }
   }
   .btn-dilig:hover { background: var(--gold); border-color: var(--gold); color: var(--surface); }
-  .btn-dilig.feita { border-color: var(--green); color: var(--green); background: var(--green-soft); }
+  /* a pastilha verde tem fundo próprio: sem a margem negativa, que a fazia
+     invadir o "histórico" quando as duas cabiam na mesma linha */
+  .btn-dilig.feita { border-color: var(--green); color: var(--green); background: var(--green-soft); margin-left: 0; }
   .btn-dilig.feita:hover { background: var(--green); color: var(--surface); }
   .btn-dilig:disabled { opacity: .45; cursor: default; }
   .dilig-rapida { display: grid; gap: 5px; margin-top: 7px; }
@@ -738,6 +780,7 @@
   <nav class="navegacao" id="navegacao" hidden aria-label="Telas">
     <button data-tela="carteiras" title="Carteiras" aria-current="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h18v12H3z"/><path d="M3 11h18"/><path d="M9 7V5h6v2"/></svg><span>Carteiras</span></button>
     <button data-tela="divisao" title="Divisão das Carteiras"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2.6" width="6" height="5" rx="1.3"/><rect x="2.4" y="16.4" width="6" height="5" rx="1.3"/><rect x="15.6" y="16.4" width="6" height="5" rx="1.3"/><path d="M12 7.6v3.4"/><path d="M5.4 16.4V11h13.2v5.4"/></svg><span>Divisão</span></button>
+    <button data-tela="pauta" title="Pauta de julgamento"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="m9 15 2 2 4-4"/></svg><span>Pauta</span></button>
     <button data-tela="passagens" title="Passagens entre carteiras"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h13l-3-3"/><path d="M20 16H7l3 3"/></svg><span>Passagens</span><i class="conta" id="conta-passagens" hidden>0</i></button>
     <button data-tela="painel" title="Painel do setor" id="nav-painel" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M21 20H3"/></svg><span>Painel</span></button>
     <button data-tela="equipe" title="Equipe" id="nav-equipe" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a5 5 0 0 1 10 0v1"/><path d="M16 5.2a3 3 0 0 1 0 5.6"/><path d="M18 20v-1a5 5 0 0 0-2-4"/></svg><span>Equipe</span></button>
@@ -875,6 +918,15 @@
       integrante, em que carteira estratégica cada um deles se enquadra e o que cada
       carteira quer dizer. Sai do que já está carregado na tela: não consulta o banco.</p>
     <div id="divisao-corpo"></div>
+  </div>
+
+  <!-- ================================================================ pauta -->
+  <div id="tela-pauta" hidden>
+    <h2 style="margin:18px 0 4px;font-size:18px">Pauta de julgamento</h2>
+    <p class="nota" style="margin:0 0 16px">O processo entrou em pauta? A DiliGLA cruza o DataJud
+      (os movimentos que o tribunal manda ao CNJ) com o DJEN (as publicações de pauta, com a data
+      da sessão). É informativo: confirme sempre no sistema do tribunal.</p>
+    <div id="pauta-corpo"></div>
   </div>
 
   <div id="tela-painel" hidden>
@@ -1047,6 +1099,7 @@ async function carregar() {
     BD = DGS.hidratar(dados);
     DGS.marcarMovimentosCarregados(BD);
     DGS.transferencias = dados.transferencias || [];
+    PAUTAS = new Map((dados.pautas || []).map(r => [r.processo_id, r]));
     try { localStorage.setItem(CHAVE, JSON.stringify({ ...BD, mov: movAteDias(30) })); } catch {}
     return true;
   } catch (e) {
@@ -1434,6 +1487,7 @@ function desenhar() {
              ? `<span class="etiqueta ${esc(p.categoria)}">${esc(p.categoria)}</span>` : ""}</div>` : "")
         + `<div class="sublinha">${marca}`
         + (p.transferencia_aberta ? `<span class="selo spassagem">passagem pendente</span>` : "")
+        + seloPauta(p)
         + `<button class="abrir" data-npu="${esc(n)}">histórico</button>`
         + botaoDiligencia(n, p) + `</div></div></td>`
         + `<td class="fix c2"><div class="cel">${celulaEditavel(n, p, "fase")}</div></td>`
@@ -3115,7 +3169,7 @@ $("#g-propor").addEventListener("click", async () => {
 // A grade de carteiras é a tela de sempre. As três novas — passagens, painel
 // do setor e equipe — são irmãs dela e trocam pelo menu do topo.
 let telaAtiva = "carteiras";
-const TELAS = ["carteiras", "divisao", "passagens", "painel", "equipe"];
+const TELAS = ["carteiras", "divisao", "pauta", "passagens", "painel", "equipe"];
 
 // O cabeçalho é grudado no topo e muda de altura quando os botões quebram de
 // linha. O trilho gruda logo abaixo dele, então precisa do número medido, e não
@@ -3137,6 +3191,7 @@ function mostrarTela(nome) {
   $("#abas").hidden = nome !== "carteiras";
   for (const b of $$("#navegacao button")) b.setAttribute("aria-current", String(b.dataset.tela === nome));
   if (nome === "divisao")   desenharDivisao();
+  if (nome === "pauta")     desenharPauta();
   if (nome === "passagens") desenharPassagens();
   if (nome === "painel")    desenharPainel();
   if (nome === "equipe")    desenharEquipe();
@@ -3822,6 +3877,407 @@ async function abrirSistema() {
     avisar("A base está vazia. Abra “Importar base” e carregue a aba da sua carteira "
          + "da planilha de carteiras completas.");
   }
+}
+
+// ==================================================================== pauta
+// O processo entrou em pauta de julgamento? A resposta vem da função
+// /api/pauta, que cruza o DataJud (movimentos do CNJ) com o DJEN (publicações
+// de pauta, com a data da sessão). O resultado de cada processo vai para a
+// tabela "pautas" do banco: a equipe inteira enxerga, e a carteira mostra a
+// data da sessão na linha do processo.
+let PAUTAS = new Map();                    // id do processo -> última verificação
+const ROTULO_PAUTA = {
+  incluido_em_pauta: "Em pauta", adiado: "Pautado · adiado", retirado_de_pauta: "Retirado de pauta",
+  julgado: "Julgado", sem_registro_de_pauta: "Sem pauta", indeterminado: "Fontes fora do ar",
+};
+const CLASSE_PAUTA = {
+  incluido_em_pauta: "sok", adiado: "ssent", retirado_de_pauta: "ssent",
+  julgado: "sacor", sem_registro_de_pauta: "sneutro", indeterminado: "serro",
+};
+const ORDEM_PAUTA = { incluido_em_pauta: 0, adiado: 1, retirado_de_pauta: 2, julgado: 3,
+                      indeterminado: 4, sem_registro_de_pauta: 5 };
+const TIPO_EVENTO = {
+  inclusao_em_pauta: "Inclusão em pauta", pedido_de_inclusao: "Pedido de inclusão em pauta",
+  retirada_de_pauta: "Retirada de pauta", adiamento: "Adiamento do julgamento",
+  resultado_julgamento: "Resultado do julgamento / acórdão",
+};
+const pautaEstado = {
+  quem: null, recorte: "recursal", rodando: false, parar: false,
+  feitos: 0, total: 0, falhas: 0, abertos: new Set(), detalhes: new Map(),
+};
+
+const diaMes = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || "")); return m ? `${m[3]}/${m[2]}` : ""; };
+const dataBrPauta = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || "")); return m ? `${m[3]}/${m[2]}/${m[1]}` : "—"; };
+const hojeISOlocal = () => carimbarAgora().slice(0, 10);
+
+function textoSessao(s) {
+  if (!s || !s.inicio) return "";
+  return dataBrPauta(s.inicio) + (s.fim ? ` a ${dataBrPauta(s.fim)}` : "") + (s.hora ? ` às ${s.hora}` : "");
+}
+
+// o selo que aparece na linha do processo, na carteira
+function seloPauta(p) {
+  const r = p.id && PAUTAS.get(p.id);
+  if (!r || !["incluido_em_pauta", "adiado"].includes(r.situacao)) return "";
+  const s = r.proxima_sessao;
+  const futura = s && s.inicio && (s.fim || s.inicio) >= hojeISOlocal();
+  const texto = futura ? `pauta ${diaMes(s.inicio)}` : (r.situacao === "adiado" ? "pauta adiada" : "em pauta");
+  return `<span class="selo spauta" title="${esc(r.resumo || "")}">${esc(texto)}</span>`;
+}
+
+// Pauta só faz sentido onde há julgamento colegiado: 2º grau, turma recursal,
+// recurso pendente. O recorte "em fase recursal" usa os sinais que a base tem.
+function emFaseRecursal(p) {
+  if (p.orgao_2g || p.colegiado) return true;
+  if (/^(R[1-4]|PA|P2)$/.test(p.bloco_codigo || "")) return true;
+  return /acordao|julgamento|recurso|apelacao|agravo|embargos|turma|camara|sessao|pauta|\bed\b|\bri\b|resp\b|rext\b/
+    .test(semAcento(`${p.fase || ""} ${p.objetivo || ""}`));
+}
+
+function processosDaPauta() {
+  const quem = pautaEstado.quem;
+  const lista = quem === "__todos" ? (BD.ordem || []).filter(n => BD.processos[n]) : daAba(quem);
+  return pautaEstado.recorte === "recursal" ? lista.filter(n => emFaseRecursal(BD.processos[n])) : lista;
+}
+
+function desenharPauta() {
+  const alvo = $("#pauta-corpo");
+  const pessoas = abas().filter(a => daAba(a).length);
+  if (!pautaEstado.quem || (pautaEstado.quem !== "__todos" && !pessoas.includes(pautaEstado.quem))) {
+    pautaEstado.quem = pessoas.includes(abaAtiva) ? abaAtiva : (pessoas[0] || "__todos");
+  }
+  const numeroDigitado = ($("#pauta-numero") || {}).value || "";
+  const avulso = ($("#pauta-avulso") || {}).innerHTML || "";
+
+  alvo.innerHTML = `
+    <section class="bloco-divisao">
+      <h3>Consultar um processo</h3>
+      <p class="nota">Qualquer número do TJPE, ou de outro tribunal que esteja no DataJud. Não precisa
+        estar na base; se estiver, o resultado fica guardado na carteira.</p>
+      <form class="pauta-busca" id="pauta-form" autocomplete="off">
+        <input id="pauta-numero" inputmode="numeric" placeholder="0000000-00.0000.8.17.0000"
+               aria-label="Número do processo" value="${esc(numeroDigitado)}">
+        <button class="primario" id="pauta-consultar">Verificar pauta</button>
+      </form>
+      <div id="pauta-avulso">${avulso}</div>
+    </section>
+
+    <section class="bloco-divisao">
+      <h3>Pauta da carteira</h3>
+      <p class="nota">Verifica um processo de cada vez e guarda o resultado no banco: a equipe inteira
+        enxerga, e a carteira passa a mostrar a data da sessão na linha do processo. O DataJud pode
+        levar alguns dias para receber o movimento; o DJEN costuma ser mais rápido.</p>
+      <div class="barra pauta-barra">
+        <label>Carteira de
+          <select id="pauta-quem">
+            ${pessoas.map(a => `<option value="${esc(a)}"${a === pautaEstado.quem ? " selected" : ""}>${esc(a)}</option>`).join("")}
+            <option value="__todos"${pautaEstado.quem === "__todos" ? " selected" : ""}>Setor inteiro</option>
+          </select></label>
+        <div class="chips" id="pauta-recorte" role="group" aria-label="Quais processos verificar"></div>
+        <button class="primario" id="pauta-verificar"></button>
+        <button class="secundario" id="pauta-parar" hidden>Parar</button>
+        <progress id="pauta-progresso" hidden></progress>
+        <span class="carimbo" id="pauta-carimbo"></span>
+      </div>
+      <div class="resumo" id="pauta-resumo"></div>
+      <div id="pauta-lista"></div>
+    </section>`;
+
+  const campo = $("#pauta-numero");
+  campo.addEventListener("input", () => { campo.value = mascaraDigitando(campo.value); });
+  $("#pauta-form").addEventListener("submit", e => { e.preventDefault(); consultarAvulso(); });
+  $("#pauta-quem").addEventListener("change", e => { pautaEstado.quem = e.target.value; desenharListaPauta(); });
+  $("#pauta-recorte").addEventListener("click", e => {
+    const b = e.target.closest("button[data-recorte]");
+    if (!b) return;
+    pautaEstado.recorte = b.dataset.recorte;
+    desenharListaPauta();
+  });
+  $("#pauta-verificar").addEventListener("click", verificarPautaDaLista);
+  $("#pauta-parar").addEventListener("click", () => { pautaEstado.parar = true; $("#pauta-parar").disabled = true; });
+  $("#pauta-lista").addEventListener("click", cliqueNaListaPauta);
+  desenharListaPauta();
+}
+
+function mascaraDigitando(v) {
+  const d = String(v).replace(/\D/g, "").slice(0, 20);
+  const p = [d.slice(0, 7), d.slice(7, 9), d.slice(9, 13), d.slice(13, 14), d.slice(14, 16), d.slice(16)];
+  return p[0] + (p[1] ? "-" + p[1] : "") + (p[2] ? "." + p[2] : "") + (p[3] ? "." + p[3] : "")
+       + (p[4] ? "." + p[4] : "") + (p[5] ? "." + p[5] : "");
+}
+
+// A lista da carteira. Redesenhar só ela mantém a busca e os controles intactos
+// enquanto a verificação em lote vai preenchendo as linhas.
+function desenharListaPauta() {
+  if (!$("#pauta-lista")) return;
+  const quem = pautaEstado.quem;
+  const base = quem === "__todos" ? (BD.ordem || []).filter(n => BD.processos[n]) : daAba(quem);
+  const recursais = base.filter(n => emFaseRecursal(BD.processos[n]));
+  $("#pauta-recorte").innerHTML = [["recursal", "Em fase recursal", recursais.length], ["todos", "Todos", base.length]]
+    .map(([v, r, n]) => `<button data-recorte="${v}" aria-pressed="${pautaEstado.recorte === v}">${r}<span class="n">${n}</span></button>`)
+    .join("");
+
+  const lista = processosDaPauta();
+  const reg = n => BD.processos[n] || {};
+  const pautaDe = n => (reg(n).id && PAUTAS.get(reg(n).id)) || null;
+  const ordem = new Map(lista.map((n, i) => [n, i]));
+  const ordenada = lista.slice().sort((a, b) => {
+    const pa = pautaDe(a), pb = pautaDe(b);
+    const oa = pa ? ORDEM_PAUTA[pa.situacao] ?? 6 : 7, ob = pb ? ORDEM_PAUTA[pb.situacao] ?? 6 : 7;
+    if (oa !== ob) return oa - ob;
+    const sa = (pa && pa.proxima_sessao && pa.proxima_sessao.inicio) || "9999";
+    const sb = (pb && pb.proxima_sessao && pb.proxima_sessao.inicio) || "9999";
+    return sa.localeCompare(sb) || ordem.get(a) - ordem.get(b);
+  });
+
+  // faixa de números
+  const conta = {};
+  for (const n of lista) { const r = pautaDe(n); const k = r ? r.situacao : "nao"; conta[k] = (conta[k] || 0) + 1; }
+  const hoje = hojeISOlocal();
+  const proximas = lista.filter(n => {
+    const s = (pautaDe(n) || {}).proxima_sessao;
+    return s && s.inicio && (s.fim || s.inicio) >= hoje;
+  }).length;
+  $("#pauta-resumo").innerHTML = [
+    [conta.incluido_em_pauta || 0, "em pauta", "destaque"],
+    [proximas, "com sessão marcada", ""],
+    [(conta.adiado || 0) + (conta.retirado_de_pauta || 0), "adiados ou retirados", ""],
+    [conta.julgado || 0, "julgados", ""],
+    [conta.sem_registro_de_pauta || 0, "sem pauta", ""],
+    [conta.nao || 0, "ainda não verificados", (conta.nao ? "alerta" : "")],
+  ].map(([n, r, c]) => `<span class="${c}"><b>${n}</b>${r}</span>`).join("");
+
+  // botão principal e progresso
+  const b = $("#pauta-verificar");
+  b.disabled = pautaEstado.rodando || !lista.length;
+  b.textContent = pautaEstado.rodando ? "Verificando…" : `Verificar ${lista.length} processo${lista.length === 1 ? "" : "s"}`;
+  $("#pauta-parar").hidden = !pautaEstado.rodando;
+  const prog = $("#pauta-progresso");
+  prog.hidden = !pautaEstado.rodando;
+  if (pautaEstado.rodando) { prog.max = pautaEstado.total; prog.value = pautaEstado.feitos; }
+  pintarCarimboPauta();
+
+  if (!lista.length) {
+    $("#pauta-lista").innerHTML = `<p class="vazio-tela">${pautaEstado.recorte === "recursal"
+      ? "Nenhum processo desta carteira parece estar em fase recursal. Use “Todos” para verificar a carteira inteira."
+      : "Esta carteira ainda não tem processos."}</p>`;
+    return;
+  }
+
+  const linhas = ordenada.map(n => {
+    const p = reg(n), r = pautaDe(n), aberto = p.id && pautaEstado.abertos.has(p.id);
+    const situacao = r
+      ? `<span class="selo ${CLASSE_PAUTA[r.situacao] || "sneutro"}">${esc(ROTULO_PAUTA[r.situacao] || r.situacao)}</span>`
+      : `<span class="vaga">não verificado</span>`;
+    const s = r && (r.proxima_sessao || r.ultima_sessao);
+    const sessao = s && s.inicio
+      ? `<b>${esc(textoSessao(s))}</b>${s.orgao ? `<small>${esc(s.orgao)}</small>` : ""}
+         ${r.proxima_sessao ? "" : `<small>última informada</small>`}`
+      : `<span class="vaga">—</span>`;
+    return `<tr class="${aberto ? "aberta" : ""}">
+      <td><button class="elo npu-elo" data-abre="${esc(n)}" title="Abrir o processo">${esc(mascara(n))}</button>
+        ${p.grupo ? `<small class="grupo-rotulo">${esc(p.grupo)}</small>` : ""}</td>
+      <td class="obj-pauta">${esc(p.objetivo || "—")}${p.fase ? `<small>${esc(p.fase)}</small>` : ""}</td>
+      <td>${situacao}</td>
+      <td class="sessao">${sessao}</td>
+      <td class="quando-pauta">${r ? esc(quandoLocal(r.consultado_em)) : `<span class="vaga">—</span>`}</td>
+      <td class="acoes-pauta">
+        ${r ? `<button class="secundario" data-detalhe="${esc(n)}" aria-expanded="${aberto}">${aberto ? "Fechar" : "Detalhes"}</button>` : ""}
+        <button class="secundario" data-verificar="${esc(n)}"${pautaEstado.rodando ? " disabled" : ""}
+          title="Verificar só este processo">Verificar</button></td>
+    </tr>${aberto ? `<tr class="pauta-detalhe"><td colspan="6" id="pauta-det-${esc(p.id)}">${
+      htmlResultadoPauta(pautaEstado.detalhes.get(p.id) || null, r)}</td></tr>` : ""}`;
+  }).join("");
+
+  $("#pauta-lista").innerHTML = `<div class="rolagem-larga"><table class="tabela-simples pauta-tabela">
+    <thead><tr><th>Processo</th><th>Objetivo e fase</th><th>Situação</th><th>Sessão</th>
+      <th>Verificado em</th><th></th></tr></thead><tbody>${linhas}</tbody></table></div>`;
+}
+
+function pintarCarimboPauta() {
+  const c = $("#pauta-carimbo");
+  if (!c) return;
+  if (pautaEstado.rodando) {
+    c.textContent = `Verificando… ${pautaEstado.feitos} de ${pautaEstado.total}`
+      + (pautaEstado.falhas ? ` · ${pautaEstado.falhas} sem resposta` : "");
+    return;
+  }
+  const datas = processosDaPauta().map(n => (BD.processos[n] || {}).id).map(id => id && PAUTAS.get(id))
+    .filter(Boolean).map(r => r.consultado_em).sort();
+  c.textContent = datas.length ? `Verificação mais antiga: ${quandoLocal(datas[0])}` : "";
+}
+
+// Resultado detalhado: o mesmo desenho para a consulta avulsa e para a linha aberta.
+function htmlResultadoPauta(r, guardado) {
+  if (!r && guardado && !guardado.eventos) return `<p class="nota">Carregando o histórico…</p>`;
+  r = r || guardado || {};
+  const eventos = r.eventos || [];
+  const avisos = r.avisos || [];
+  const situacao = r.situacao || "indeterminado";
+  const numero = r.numero || "";
+  const fontes = r.fontes || {};
+  const evento = e => {
+    const sess = e.sessao && e.sessao.inicio ? ` · sessão ${textoSessao(e.sessao)}` : "";
+    return `<li class="t-${esc(e.tipo)}">
+      <div class="quando">${esc(dataBrPauta(e.data))} — ${esc(e.tipo_descricao || TIPO_EVENTO[e.tipo] || e.tipo)}</div>
+      <div class="meta">${esc(e.fonte)}${e.grau ? ` (${esc(e.grau)})` : ""} · ${esc(e.descricao || "")}${
+        e.orgao ? ` · ${esc(e.orgao)}` : ""}${esc(sess)}</div>
+      ${e.trecho ? `<div class="trecho">${esc(e.trecho)}</div>` : ""}
+      ${e.link && /^https:\/\//.test(e.link) ? `<a href="${esc(e.link)}" target="_blank" rel="noopener">Abrir publicação</a>` : ""}
+    </li>`;
+  };
+  const instancias = (r.processo && r.processo.instancias) || [];
+  return `<div class="resultado-pauta">
+    <div class="cabeca"><span class="selo grande ${CLASSE_PAUTA[situacao] || "sneutro"}">${esc(ROTULO_PAUTA[situacao] || situacao)}</span>
+      ${r.numero_formatado ? `<span class="mono">${esc(r.numero_formatado)}${r.tribunal ? " · " + esc(r.tribunal) : ""}</span>` : ""}</div>
+    ${r.resumo ? `<p class="resumo-txt">${esc(r.resumo)}</p>` : ""}
+    ${avisos.length ? `<ul class="pauta-avisos">${avisos.map(a => `<li>${esc(a)}</li>`).join("")}</ul>` : ""}
+    ${eventos.length ? `<h4>Histórico de pauta</h4><ol class="linha-tempo">${eventos.map(evento).join("")}</ol>` : ""}
+    ${instancias.length ? `<h4>Processo no DataJud</h4>${instancias.map(i => `<p class="nota">${esc(i.grau || "—")} · ${
+      esc(i.classe || "—")} · ${esc(i.orgao_julgador || "—")} · último movimento: ${
+      i.ultimo_movimento ? esc(dataBrPauta(i.ultimo_movimento.data) + " " + (i.ultimo_movimento.nome || "")) : "—"}</p>`).join("")}` : ""}
+    <div class="pauta-fontes">
+      ${fontes.datajud ? `<span>DataJud: ${fontes.datajud.ok ? (fontes.datajud.encontrado ? "consultado" : "não encontrado") : "falhou"}</span>` : ""}
+      ${fontes.djen ? `<span>DJEN: ${fontes.djen.ok ? `${fontes.djen.publicacoes} publicação(ões)` : "falhou"}</span>` : ""}
+      ${/^\d{20}$/.test(numero) ? `<a href="https://comunica.pje.jus.br/consulta?numeroProcesso=${numero}" target="_blank" rel="noopener">Ver no DJEN</a>` : ""}
+      <span>Resultado informativo: confirme no sistema do tribunal.</span>
+    </div></div>`;
+}
+
+async function consultarPautaApi(numero) {
+  let resp;
+  try { resp = await fetch(`/api/pauta?numero=${encodeURIComponent(numero)}`); }
+  catch (e) { throw new Error("Sem conexão com a função de pauta."); }
+  let j = null;
+  try { j = await resp.json(); } catch { /* a resposta não é JSON */ }
+  if (!j) throw new Error(resp.status === 404
+    ? "A função de pauta ainda não está publicada neste endereço."
+    : `A função de pauta respondeu HTTP ${resp.status}.`);
+  // 502 é "as duas fontes falharam": vem com o corpo de sempre, situação indeterminada
+  if (!resp.ok && resp.status !== 502) throw new Error(j.erro || `HTTP ${resp.status}`);
+  return j;
+}
+
+// Guarda na memória e no banco. "Fontes fora do ar" não substitui uma verificação
+// boa anterior: fica só na tela, para não apagar o que se sabia.
+function guardarPauta(p, r) {
+  pautaEstado.detalhes.set(p.id, r);
+  if (r.situacao === "indeterminado") return;
+  const linha = {
+    processo_id: p.id, situacao: r.situacao, incluido: !!r.incluido_em_pauta, resumo: r.resumo || null,
+    proxima_sessao: r.proxima_sessao || null, ultima_sessao: r.ultima_sessao_informada || null,
+    eventos: r.eventos || [], avisos: r.avisos || [], fontes: r.fontes || null,
+    consultado_em: r.consultado_em || new Date().toISOString(), consultado_por: DG.meuId(),
+  };
+  PAUTAS.set(p.id, linha);
+  if (DG.escreve()) DG.registrarPauta(linha);
+}
+
+async function consultarAvulso() {
+  const campo = $("#pauta-numero"), b = $("#pauta-consultar"), alvo = $("#pauta-avulso");
+  const numero = campo.value.trim();
+  if (!numero) { campo.focus(); return; }
+  b.disabled = true; b.textContent = "Verificando…";
+  alvo.innerHTML = `<p class="nota" style="margin-top:12px">Consultando o DataJud e o DJEN…</p>`;
+  try {
+    const r = await consultarPautaApi(numero);
+    const npu = soDigitos(numero), p = BD.processos[npu];
+    let nota = "";
+    if (p && p.id) {
+      guardarPauta(p, r);
+      nota = `<p class="nota" style="margin-top:8px">Este processo está na carteira de ${esc(p.resp)}${
+        DG.escreve() && r.situacao !== "indeterminado" ? "; o resultado ficou guardado lá." : "."}</p>`;
+      desenharListaPauta();
+      desenhar();
+    }
+    alvo.innerHTML = htmlResultadoPauta(r) + nota;
+  } catch (e) {
+    alvo.innerHTML = `<div class="resultado-pauta"><div class="cabeca"><span class="selo grande serro">Não consultado</span></div>
+      <p class="resumo-txt">${esc(e.message)}</p></div>`;
+  } finally {
+    b.disabled = false; b.textContent = "Verificar pauta";
+  }
+}
+
+async function cliqueNaListaPauta(e) {
+  const abrir = e.target.closest("button[data-abre]");
+  if (abrir) { mostrarTela("carteiras"); abrirGaveta(abrir.dataset.abre); return; }
+  const um = e.target.closest("button[data-verificar]");
+  if (um) {
+    const p = BD.processos[um.dataset.verificar];
+    um.disabled = true; um.textContent = "…";
+    try {
+      const r = await consultarPautaApi(um.dataset.verificar);
+      guardarPauta(p, r);
+      pautaEstado.abertos.add(p.id);
+      avisar(`${mascara(um.dataset.verificar)}: ${ROTULO_PAUTA[r.situacao] || r.situacao}.`, r.situacao === "indeterminado");
+    } catch (err) { avisar(err.message, true); }
+    desenharListaPauta();
+    desenhar();
+    return;
+  }
+  const det = e.target.closest("button[data-detalhe]");
+  if (det) {
+    const p = BD.processos[det.dataset.detalhe];
+    if (pautaEstado.abertos.has(p.id)) { pautaEstado.abertos.delete(p.id); desenharListaPauta(); return; }
+    pautaEstado.abertos.add(p.id);
+    desenharListaPauta();
+    // os eventos não vêm na carga inicial; buscam-se aqui, uma vez
+    if (!pautaEstado.detalhes.has(p.id)) {
+      try {
+        const l = await DG.ler(`/pautas?select=*&processo_id=eq.${p.id}`);
+        if (l && l[0]) pautaEstado.detalhes.set(p.id, { ...l[0], numero: p.npu, numero_formatado: mascara(p.npu),
+          ultima_sessao_informada: l[0].ultima_sessao });
+      } catch { /* sem rede: fica o resumo */ }
+      const cel = $(`#pauta-det-${p.id}`);
+      if (cel) cel.innerHTML = htmlResultadoPauta(pautaEstado.detalhes.get(p.id) || PAUTAS.get(p.id));
+    }
+  }
+}
+
+// A carteira inteira, dois processos por vez: as APIs públicas recusam rajadas.
+async function verificarPautaDaLista() {
+  if (pautaEstado.rodando) return;
+  const lista = processosDaPauta().filter(n => (BD.processos[n] || {}).id);
+  if (!lista.length) return;
+  if (lista.length > 40 && !confirm(`Verificar ${lista.length} processos? Leva alguns minutos; dá para continuar usando o sistema enquanto isso.`)) return;
+  Object.assign(pautaEstado, { rodando: true, parar: false, feitos: 0, total: lista.length, falhas: 0 });
+  $("#pauta-parar").disabled = false;
+  desenharListaPauta();
+  const fila = lista.slice();
+  let sucessos = 0, motivo = "", agendado = null;
+  const redesenhar = () => { if (agendado) return; agendado = setTimeout(() => { agendado = null; desenharListaPauta(); }, 500); };
+
+  async function trabalhador() {
+    while (fila.length && !pautaEstado.parar) {
+      const n = fila.shift();
+      try {
+        const r = await consultarPautaApi(n);
+        guardarPauta(BD.processos[n], r);
+        if (r.situacao === "indeterminado") pautaEstado.falhas++; else sucessos++;
+      } catch (e) {
+        pautaEstado.falhas++;
+        motivo = e.message;
+        // se a função nem existe, não adianta insistir nos outros 300
+        if (!sucessos) { pautaEstado.parar = true; }
+      }
+      pautaEstado.feitos++;
+      pintarCarimboPauta();
+      const prog = $("#pauta-progresso");
+      if (prog) prog.value = pautaEstado.feitos;
+      redesenhar();
+    }
+  }
+  await Promise.all([trabalhador(), trabalhador()]);
+  clearTimeout(agendado);
+  pautaEstado.rodando = false;
+  desenharListaPauta();
+  desenhar();
+  const emPauta = lista.filter(n => (PAUTAS.get(BD.processos[n].id) || {}).situacao === "incluido_em_pauta").length;
+  if (!sucessos && motivo) avisar(`A verificação parou: ${motivo}`, true);
+  else avisar(`Pauta verificada em ${sucessos} processo(s): ${emPauta} em pauta.`
+    + (pautaEstado.falhas ? ` ${pautaEstado.falhas} ficaram sem resposta e podem ser verificados de novo.` : "")
+    + (DG.escreve() ? "" : " Você está como leitura: o resultado não foi guardado no banco."), !!pautaEstado.falhas && !sucessos);
 }
 
 // ================================================ várias pessoas ao mesmo tempo

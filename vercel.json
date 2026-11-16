@@ -1,5 +1,9 @@
 {
-  "functions": { "api/processo.js": { "maxDuration": 60 } },
+  "regions": ["gru1"],
+  "functions": {
+    "api/processo.js": { "maxDuration": 60 },
+    "api/pauta.js": { "maxDuration": 30 }
+  },
   "headers": [
     { "source": "/(.*)",
       "headers": [

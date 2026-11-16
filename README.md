@@ -17,10 +17,40 @@ js/sincronia.js   ponte entre a tela e o banco; reconhecimento dos gatilhos
 vendor/           SheetJS, que vai junto em vez de vir de CDN
 api/processo.js   função que consulta o MNI do PJe (o navegador não pode, por CORS)
 api/config.js     devolve URL e chave quando elas vêm de variável de ambiente
+api/pauta.js      o processo entrou em pauta? Cruza DataJud e DJEN (lógica em lib/pauta/)
+lib/pauta/        validação do número CNJ, clientes do DataJud e do DJEN, classificação
+test/             testes da pauta com respostas simuladas: node --test test/pauta.test.js
 sql/              as migrações, na ordem
 ```
 
 Não há build nem dependência de npm: o que o navegador baixa é o que roda.
+
+## Pauta
+
+A tela **Pauta** (ícone de calendário no trilho) responde se o processo entrou em
+pauta de julgamento. A função `api/pauta.js` cruza duas fontes públicas do CNJ:
+
+- **DataJud**: movimentos como "Inclusão em pauta", "Retirada de pauta" e
+  "Adiamento". Os tribunais mandam esses dados ao CNJ de tempos em tempos, então
+  a inclusão pode levar alguns dias para aparecer. A API também limita o ritmo
+  (HTTP 429); a função tenta de novo uma vez e, se não der, segue só com o DJEN.
+- **DJEN**: publicações de pauta, com a data da sessão, e de resultado de
+  julgamento. Costuma ser mais rápido que o DataJud.
+
+O resultado de cada processo fica na tabela `pautas` (`sql/006_pauta.sql`): a
+equipe inteira enxerga, e a carteira mostra "pauta 25/11" na linha do processo.
+
+As funções rodam em **São Paulo** (`"regions": ["gru1"]` no `vercel.json`): o DJEN
+costuma recusar (HTTP 403) quem vem de fora do Brasil.
+
+A chave do DataJud é pública e já vem no código. Se o CNJ trocá-la e a API
+passar a responder 401 ou 403, pegue a atual em
+<https://datajud-wiki.cnj.jus.br/api-publica/acesso> e defina a variável
+`DATAJUD_API_KEY` na Vercel.
+
+O resultado é informativo: a classificação lê palavras como "pauta", "sessão",
+"retirado" e "adiado", e processos sigilosos não aparecem nas bases públicas.
+Confirme sempre no sistema do tribunal.
 
 ## Publicar na Vercel
 

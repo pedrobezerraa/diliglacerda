@@ -305,8 +305,23 @@ window.DG = (function () {
     const movimentos = await paginado("/movimentos?select=*&order=data");
     const transferencias = await ler(
       "/transferencias?select=*,processo:processos(npu)&order=criada_em.desc&limit=400");
+    // a pauta vem à parte e sem os eventos (que são pesados e só a tela de
+    // pauta abre); se a tabela ainda não existir no banco, a carga segue sem ela
+    const pautas = await paginado("/pautas?select=processo_id,situacao,incluido,resumo,"
+      + "proxima_sessao,ultima_sessao,consultado_em,consultado_por").catch(() => []);
     return { membros, materias, carteiras, blocos, gatilhos, verbos,
-             processos, movimentos, transferencias };
+             processos, movimentos, transferencias, pautas };
+  }
+
+  // Guarda o resultado de uma verificação de pauta. Upsert pela mesma fila das
+  // outras escritas: verificar de novo substitui a linha, não duplica.
+  function registrarPauta(linha) {
+    enfileirar({
+      metodo: "POST",
+      caminho: "/rest/v1/pautas?on_conflict=processo_id",
+      corpo: [linha],
+      upsert: true,
+    });
   }
 
   // Alterar um campo de um processo. Entra na tela na hora; sobe depois.
@@ -333,7 +348,7 @@ window.DG = (function () {
     get logado() { return !!sessao && !!eu; },
     get pendentes() { return fila.length; },
     get config() { return { ...cfg }; },
-    meuId, ler, rpc, req, paginado, carregarTudo, alterarProcesso, registrarMovimentos,
+    meuId, ler, rpc, req, paginado, carregarTudo, alterarProcesso, registrarMovimentos, registrarPauta,
     enfileirar, escoarFila,
     gestora: () => !!eu && eu.papel === "gestora",
     escreve: () => !!eu && (eu.papel === "gestora" || eu.papel === "diligente"),

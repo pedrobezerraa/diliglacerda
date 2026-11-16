@@ -391,6 +391,15 @@
            border-radius: var(--r-m); padding: 11px 15px; font-size: .86rem; margin-bottom: 14px;
            box-shadow: var(--shadow-s); }
   .aviso.ruim { background: var(--red-soft); border-color: #eec4c0; color: #7d2525; }
+  /* Os dois avisos flutuam no pé da tela. Antes eles entravam no alto da página e
+     empurravam a grade para baixo: com outra pessoa mexendo na base, a faixa de
+     novidade aparecia no meio de uma digitação e a linha saía de baixo do cursor. */
+  .aviso { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 80;
+           width: max-content; max-width: min(680px, calc(100vw - 28px)); margin: 0;
+           box-shadow: var(--shadow-l); cursor: pointer; }
+  .novidade { position: fixed; right: 20px; bottom: 20px; z-index: 79; margin: 0;
+              max-width: min(520px, calc(100vw - 28px)); box-shadow: var(--shadow-l); }
+  @media (max-width: 1200px) { .novidade { bottom: 84px; } }
   /* a tela é uma fotografia do momento em que a página abriu; esta faixa é o
      aviso de que a fotografia envelheceu */
   .novidade { display: flex; align-items: center; gap: 11px; flex-wrap: wrap;
@@ -918,7 +927,7 @@
       <option value="interno">Interno — peça ou cálculo do escritório</option>
     </select></div>
     <div class="registro-dilig">
-      <label for="g-feito">Diligência feita agora</label>
+      <label for="g-feito">Diligência feita agora <span class="nota">(o que foi feito é opcional)</span></label>
       <input type="text" id="g-feito" maxlength="500"
              placeholder="Ex.: conferi os autos; peticionei pedindo a expedição da RPV">
       <div class="linha-acoes" style="margin-top:7px">
@@ -1127,11 +1136,35 @@ const movsDe = npu => Object.entries(BD.mov[npu] || {})
   .map(([chave, m]) => ({ ...m, chave }))
   .sort((a, b) => String(a.data).localeCompare(String(b.data)));
 
+// Avisos bons somem sozinhos; os de erro ficam até um clique. Clicar fecha qualquer um.
+let tempoAviso = null;
 function avisar(texto, ruim) {
   const el = $("#aviso");
+  clearTimeout(tempoAviso);
   el.textContent = texto || "";
   el.hidden = !texto;
   el.classList.toggle("ruim", !!ruim);
+  el.title = texto ? "Clique para fechar" : "";
+  if (texto && !ruim) tempoAviso = setTimeout(() => { el.hidden = true; }, Math.min(14000, 4500 + String(texto).length * 40));
+}
+$("#aviso").addEventListener("click", () => { clearTimeout(tempoAviso); $("#aviso").hidden = true; });
+
+// Alguém está escrevendo numa célula da grade? Enquanto estiver, a grade não é
+// redesenhada: redesenhar destruía o campo no meio da digitação (a consulta ao
+// PJe redesenha a cada 1,2 s, e o "Atualizar" redesenha tudo).
+const editandoAgora = () => {
+  const a = document.activeElement;
+  return !!(a && a.classList && a.classList.contains("edita-celula"));
+};
+let tempoRedesenho = null;
+function redesenharQuandoLivre() {
+  clearTimeout(tempoRedesenho);
+  tempoRedesenho = setTimeout(() => {
+    if (editandoAgora()) { redesenharQuandoLivre(); return; }
+    const r = $("#rolagem"), x = r ? r.scrollLeft : 0, y = r ? r.scrollTop : 0;
+    desenhar();
+    if (r) { r.scrollLeft = x; r.scrollTop = y; }
+  }, 500);
 }
 
 // ------------------------------------------------------------------ consulta ao PJe
@@ -1347,6 +1380,7 @@ function celulaDatas(npu, dia, ultimaConsulta) {
 }
 
 function desenhar() {
+  if (editandoAgora()) { redesenharQuandoLivre(); return; }
   // abas
   const todasAbas = abas();
   // uma importação pode trocar os nomes das abas ("Pedro" vira "Pedro Miguel"):
@@ -1586,13 +1620,15 @@ async function contarHoje() {
   atualizarBotoesDiligencia();
 }
 
-// O botão fica na própria linha da carteira: dá para registrar sem abrir o processo.
+// O botão fica na própria linha da carteira: um clique registra que você fez
+// diligência hoje naquele processo; outro clique, num processo já marcado, desfaz.
 function botaoDiligencia(npu, p) {
   const k = (p.id && diligHoje.get(p.id)) || 0;
   const pode = DG.escreve() && !!p.id;
   return `<button class="btn-dilig${k ? " feita" : ""}" data-dilig="${esc(npu)}"${pode ? "" : " disabled"}
-    title="${k ? `Você já registrou ${k} diligência(s) hoje neste processo. Clique para registrar outra.`
-               : "Registrar a diligência feita neste processo"}">${k ? `✓ diligência${k > 1 ? ` ×${k}` : ""}` : "+ diligência"}</button>`;
+    aria-pressed="${k ? "true" : "false"}"
+    title="${k ? "Diligência de hoje registrada. Clique para desfazer."
+               : "Clique para registrar que você fez diligência hoje neste processo"}">${k ? "✓ diligência feita" : "+ diligência"}</button>`;
 }
 
 function atualizarBotoesDiligencia() {
@@ -1608,51 +1644,42 @@ function atualizarBotoesDiligencia() {
   if (placar) placar.textContent = `${feitasHoje} de ${metaDiaria()}`;
 }
 
-// abre, na própria célula, um campo curto: Enter registra, Esc fecha
-function abrirDiligenciaRapida(botao) {
+const inicioDeHoje = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString(); };
+
+function alternarDiligencia(botao) {
   const npu = botao.dataset.dilig, p = BD.processos[npu];
+  if (!p || !p.id || botao.disabled) return;
+  if (diligHoje.get(p.id)) {
+    if (confirm(`Desfazer a diligência de hoje em ${mascara(npu)}?`)) desfazerDiligencia(npu);
+  } else {
+    gravarDiligencia(npu, "", p.condicao);
+  }
+}
+
+// Apaga as diligências que você registrou hoje neste processo. Vai pela mesma
+// fila do registro, então um desfazer logo depois do clique chega na ordem certa.
+function desfazerDiligencia(npu) {
+  const p = BD.processos[npu];
   if (!p || !p.id) return;
-  const cel = botao.closest(".cel");
-  const aberto = cel.querySelector(".dilig-rapida");
-  if (aberto) { aberto.querySelector("input").focus(); return; }
-  const caixa = document.createElement("div");
-  caixa.className = "dilig-rapida";
-  caixa.innerHTML = `<input type="text" maxlength="500" aria-label="O que foi feito neste processo"
-      placeholder="O que foi feito? Enter registra">
-    <div class="acoes">
-      <select aria-label="Condição da diligência">
-        <option value="">condição…</option>
-        ${Object.entries(ROTULO_CONDICAO).map(([v, r]) =>
-          `<option value="${v}"${p.condicao === v ? " selected" : ""}>${r}</option>`).join("")}
-      </select>
-      <button class="primario">Registrar</button>
-      <button class="secundario" aria-label="Fechar">×</button>
-    </div>`;
-  cel.appendChild(caixa);
-  const campo = caixa.querySelector("input");
-  const [registrar, fechar] = caixa.querySelectorAll("button");
-  const enviar = () => {
-    if (gravarDiligencia(npu, campo.value, caixa.querySelector("select").value)) caixa.remove();
-    else campo.focus();
-  };
-  registrar.addEventListener("click", enviar);
-  fechar.addEventListener("click", () => caixa.remove());
-  caixa.addEventListener("keydown", e => {
-    if (e.key === "Enter") { e.preventDefault(); enviar(); }
-    else if (e.key === "Escape") { e.preventDefault(); caixa.remove(); }
-  });
-  campo.focus();
+  const inicio = inicioDeHoje();
+  DG.enfileirar({ metodo: "DELETE",
+    caminho: `/rest/v1/providencias?processo_id=eq.${p.id}&por=eq.${DG.meuId()}&em=gte.${encodeURIComponent(inicio)}` });
+  feitasHoje = Math.max(0, feitasHoje - (diligHoje.get(p.id) || 0));
+  diligHoje.delete(p.id);
+  if (gavetaNpu === npu) {
+    provsGaveta = provsGaveta.filter(x => !(x.por === DG.meuId() && new Date(x.em) >= new Date(inicio)));
+    pintarProvidencias();
+  }
+  pintarHoje();
+  atualizarBotoesDiligencia();
+  avisar(`Diligência de hoje desfeita em ${mascara(npu)}. Hoje: ${feitasHoje} de ${metaDiaria()}.`);
 }
 
 // O registro em si, usado pela linha da carteira e pela gaveta.
 function gravarDiligencia(npu, textoBruto, condicaoBruta, marco) {
   const p = BD.processos[npu];
   if (!p || !p.id) return false;
-  const texto = String(textoBruto || "").replace(/\s+/g, " ").trim();
-  if (!texto) {
-    avisar("Escreva em poucas palavras o que foi feito antes de registrar.", true);
-    return false;
-  }
+  const texto = String(textoBruto || "").replace(/\s+/g, " ").trim() || "Diligência realizada";
   const condicao = condicaoBruta || null;
   const linha = { processo_id: p.id, por: DG.meuId(), texto, condicao, proximo_marco: marco || null };
   DG.enfileirar({ metodo: "POST", caminho: "/rest/v1/providencias", corpo: linha });
@@ -1706,8 +1733,7 @@ $("#g-feito").addEventListener("keydown", e => { if (e.key === "Enter") registra
 function fecharGaveta() { $("#gaveta").hidden = true; $("#fundo").hidden = true; gavetaNpu = ""; }
 $("#grade-corpo").addEventListener("click", e => {
   const d = e.target.closest("button[data-dilig]");
-  if (d) { abrirDiligenciaRapida(d); return; }
-  if (e.target.closest(".dilig-rapida")) return;
+  if (d) { alternarDiligencia(d); return; }
   const b = e.target.closest("button[data-npu]");
   if (b) { abrirGaveta(b.dataset.npu); return; }
   const cel = e.target.closest(".cel-edit");
@@ -3824,7 +3850,7 @@ async function remarcarBase() {
 }
 
 async function olharNovidade() {
-  if (!DG.logado || DG.pendentes || document.hidden || !$("#novidade").hidden) return;
+  if (!DG.logado || DG.pendentes || document.hidden || !$("#novidade").hidden || editandoAgora()) return;
   try {
     const agora = await lerMarcaBase();
     if (marcaBase && agora && agora > marcaBase) $("#novidade").hidden = false;

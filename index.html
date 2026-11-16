@@ -417,6 +417,13 @@
 
   /* ---- pauta ---- */
   .selo.spauta { background: var(--azul-soft); color: var(--azul); }
+  /* o botão de pauta da linha herda o desenho do de diligência, no azul da pauta */
+  .btn-pauta:not(:disabled):hover { background: var(--azul); border-color: var(--azul); color: var(--surface); }
+  @media (hover: hover) {
+    table.grade tbody tr:hover .btn-pauta:not(:hover) { color: var(--azul); }
+  }
+  @media (hover: none) { .btn-dilig.btn-pauta { color: var(--azul); } }
+  .btn-pauta:disabled { opacity: .6; cursor: progress; }
   .selo.grande { font-size: .76rem; padding: 3px 11px; }
   .pauta-busca { display: flex; gap: 10px; flex-wrap: wrap; max-width: 640px; }
   .pauta-busca input { flex: 1 1 280px; font: 500 .95rem var(--mono); letter-spacing: -.01em; padding: 9px 13px;
@@ -1489,7 +1496,7 @@ function desenhar() {
         + (p.transferencia_aberta ? `<span class="selo spassagem">passagem pendente</span>` : "")
         + seloPauta(p)
         + `<button class="abrir" data-npu="${esc(n)}">histórico</button>`
-        + botaoDiligencia(n, p) + `</div></div></td>`
+        + botaoDiligencia(n, p) + botaoPauta(n, p) + `</div></div></td>`
         + `<td class="fix c2"><div class="cel">${celulaEditavel(n, p, "fase")}</div></td>`
         + `<td class="fix c3"><div class="cel cel-juizo" title="${esc(tituloJuizo(p))}">`
         + `${esc(p.juizo || "—")}`
@@ -1788,6 +1795,8 @@ function fecharGaveta() { $("#gaveta").hidden = true; $("#fundo").hidden = true;
 $("#grade-corpo").addEventListener("click", e => {
   const d = e.target.closest("button[data-dilig]");
   if (d) { alternarDiligencia(d); return; }
+  const pa = e.target.closest("button[data-pauta]");
+  if (pa) { verificarPautaDaLinha(pa); return; }
   const b = e.target.closest("button[data-npu]");
   if (b) { abrirGaveta(b.dataset.npu); return; }
   const cel = e.target.closest(".cel-edit");
@@ -3923,6 +3932,45 @@ function seloPauta(p) {
   const futura = s && s.inicio && (s.fim || s.inicio) >= hojeISOlocal();
   const texto = futura ? `pauta ${diaMes(s.inicio)}` : (r.situacao === "adiado" ? "pauta adiada" : "em pauta");
   return `<span class="selo spauta" title="${esc(r.resumo || "")}">${esc(texto)}</span>`;
+}
+
+// O botão "pauta" na linha da carteira, ao lado do de diligência: verifica só
+// aquele processo, sem sair da carteira. O resultado entra no selo da linha.
+const pautaNaLinha = new Set();            // processos sendo verificados agora
+function botaoPauta(npu, p) {
+  if (!p.id) return "";
+  const r = PAUTAS.get(p.id);
+  const rodando = pautaNaLinha.has(npu);
+  const titulo = rodando ? "Verificando a pauta no DataJud e no DJEN…"
+    : r ? `Última verificação: ${quandoLocal(r.consultado_em)} — ${ROTULO_PAUTA[r.situacao] || r.situacao}. Clique para verificar de novo.`
+        : "Verificar se o processo entrou em pauta (DataJud + DJEN)";
+  return `<button class="btn-dilig btn-pauta" data-pauta="${esc(npu)}"${rodando ? " disabled" : ""}
+    title="${esc(titulo)}">${rodando ? "verificando…" : "pauta"}</button>`;
+}
+
+async function verificarPautaDaLinha(botao) {
+  const npu = botao.dataset.pauta, p = BD.processos[npu];
+  if (!p || !p.id || pautaNaLinha.has(npu)) return;
+  pautaNaLinha.add(npu);
+  botao.disabled = true; botao.textContent = "verificando…";
+  try {
+    const r = await consultarPautaApi(npu);
+    guardarPauta(p, r);
+    const s = r.proxima_sessao;
+    avisar(`${mascara(npu)}: ${ROTULO_PAUTA[r.situacao] || r.situacao}`
+      + (s && s.inicio ? ` — sessão ${textoSessao(s)}${s.orgao ? `, ${s.orgao}` : ""}` : "")
+      + (r.situacao === "indeterminado" ? ". As duas fontes falharam agora; tente de novo em alguns minutos." : "."),
+      r.situacao === "indeterminado");
+  } catch (e) {
+    avisar(`Não deu para verificar a pauta de ${mascara(npu)}: ${e.message}`, true);
+  } finally {
+    pautaNaLinha.delete(npu);
+    // redesenha a carteira no mesmo ponto da rolagem, para o selo novo aparecer
+    const r = $("#rolagem"), x = r ? r.scrollLeft : 0, y = r ? r.scrollTop : 0;
+    desenhar();
+    if (r) { r.scrollLeft = x; r.scrollTop = y; }
+    desenharListaPauta();
+  }
 }
 
 // Pauta só faz sentido onde há julgamento colegiado: 2º grau, turma recursal,

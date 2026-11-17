@@ -206,3 +206,49 @@ test('DataJud com limite persistente vira aviso, não erro', async () => {
   assert.match(r.avisos.join(' '), /429/);
   assert.equal(r.situacao, 'sem_registro_de_pauta');
 });
+
+// Casos tirados de publicações reais do TJPE que a primeira versão classificava errado
+test('1º grau e Vice-Presidência não viram pauta nem julgamento', () => {
+  const vara = 'Vara da Fazenda Pública da Comarca de Paulista';
+  assert.equal(classificarPublicacao({ nomeOrgao: vara,
+    texto: 'DESPACHO. O recurso foi desprovido pela 3ª Câmara de Direito Público do TJPE, cujo v. acórdão transitou em julgado. Intimem-se.' }), null);
+  assert.equal(classificarPublicacao({ nomeOrgao: vara,
+    texto: 'SENTENÇA. Vistos etc. Conforme a EMENTA: tributário... acordam os desembargadores... JULGO PROCEDENTE.' }), null);
+  assert.equal(classificarPublicacao({ nomeOrgao: '5º Juizado Especial da Fazenda Pública da Capital',
+    texto: 'Fica designada audiência; pauta de audiências do dia 10/12/2026.' }), null);
+  assert.equal(classificarPublicacao({ nomeOrgao: 'Gabinete da 2ª Vice Presidência Segundo Grau',
+    texto: 'RECURSO EXTRAORDINÁRIO. DECISÃO. Recurso interposto contra acórdão da 2ª Câmara de Direito Público.' }), null);
+});
+
+test('acórdão da câmara e intimação do acórdão viram julgamento', () => {
+  const camara = '1ª Câmara de Direito Público - 1º Gabinete';
+  assert.equal(classificarPublicacao({ nomeOrgao: camara,
+    texto: 'APELANTE: ESTADO. INTIMAÇÃO De ordem do Relator, ficam as partes intimadas do ACÓRDÃO/DECISÃO ID nº 68441982.' }), 'resultado_julgamento');
+  assert.equal(classificarPublicacao({ nomeOrgao: 'Gabinete do Des. José Ivo de Paula Guimarães',
+    texto: 'Apelação Cível nº 0017959. Apelantes: Fulano. EMENTA: DIREITO ADMINISTRATIVO. Apelação provida.' }), 'resultado_julgamento');
+  // decisão monocrática que só cita "acórdão" no meio não é julgamento
+  assert.equal(classificarPublicacao({ nomeOrgao: camara,
+    texto: 'DESPACHO Admito o Reexame Necessário. Recebo o recurso estatal no duplo efeito. Colha-se o opinativo.' }), null);
+});
+
+test('a mesma publicação para vários intimados conta uma vez só', async () => {
+  const pub = { data_disponibilizacao: '2026-10-30', nomeOrgao: '1ª Câmara de Direito Público',
+                texto: 'Ficam as partes intimadas do ACÓRDÃO ID nº 1.' };
+  const fetchFn = fetchFalso({
+    datajud: resposta(200, { hits: { hits: [] } }),
+    djen: resposta(200, { count: 3, items: [{ ...pub, id: 1 }, { ...pub, id: 2 }, { ...pub, id: 3 }] }),
+  });
+  const r = await verificarPauta(NUM, { fetchFn, agora: AGORA, pausaMs: 0 });
+  assert.equal(r.eventos.length, 1);
+  assert.equal(r.situacao, 'julgado');
+});
+
+test('movimento de pauta no 1º grau do DataJud é ignorado', async () => {
+  const fetchFn = fetchFalso({
+    datajud: resposta(200, { hits: { hits: [{ _source: { grau: 'G1', movimentos: [
+      { nome: 'Inclusão em pauta', dataHora: '2026-11-01T10:00:00Z' }] } }] } }),
+    djen: resposta(200, { count: 0, items: [] }),
+  });
+  const r = await verificarPauta(NUM, { fetchFn, agora: AGORA, pausaMs: 0 });
+  assert.equal(r.situacao, 'sem_registro_de_pauta');
+});

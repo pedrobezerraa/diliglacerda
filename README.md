@@ -95,6 +95,11 @@ do tribunal e conta no percentual de atingimento. "Conferir", "Validar",
 eles ficam fora da conta. A lista mora na tabela `objetivo_verbos`, e não no
 código, para que a gestora possa acrescentar um verbo sem esperar deploy.
 
+Uma exceção: "Conferir" que também manda obter o ato ("Conferir intimação e
+obtê-la se ausente", "Conferir prazo e obter intimação") conta como conclusão.
+"Monitorar ... e obter" e "Conferir arquivamento e validar ato residual" seguem
+como acompanhamento.
+
 **O gatilho é o ato obtido, não a diligência realizada.** Os quinze gatilhos do
 item 5 do plano estão em `gatilhos`. O sistema lê o texto do andamento,
 reconhece o ato e sugere; quem decide é a pessoa; e nada se move sem o aceite de

@@ -251,8 +251,15 @@ window.DGS = (function () {
     };
   }
 
+  // "Conferir" é acompanhamento, salvo quando o objetivo também manda obter o ato
+  // ("Conferir intimação e obtê-la se ausente"): aí há ato a alcançar, e ele conta
+  // como conclusão. A mesma regra está em tipo_do_objetivo, no banco (sql/007).
+  const CONFERIR_E_OBTER = /^conferir\b[\s\S]*\bobt(er|e-l[ao]s?)\b/;
+
   function tipoDoObjetivo(objetivo) {
-    const primeiro = chaveTxt(String(objetivo || "").trim().split(/\s+/)[0]);
+    const texto = chaveTxt(objetivo);
+    if (CONFERIR_E_OBTER.test(texto)) return "conclusao";
+    const primeiro = texto.split(/\s+/)[0];
     const v = ref.verbos.find(x => x.verbo === primeiro);
     return v ? v.tipo : "conclusao";
   }

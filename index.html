@@ -2589,9 +2589,12 @@ $("#relatorio-csv").addEventListener("click", () => {
 // gestora possa acrescentar um verbo sem esperar deploy.
 const VERBOS_RESERVA =
   /^(monitorar|conciliar|verificar|conferir|validar|acionar|encaminhar|identificar|acompanhar|aguardar|controlar|observar|analisar)\b/;
+// Exceção combinada com a gestão: "Conferir ... e obter/obtê-la" conta como conclusão,
+// porque manda alcançar o ato. "Monitorar ... e obter" continua de acompanhamento.
 const ehAcompanhamento = obj => (window.DGS && DGS.ref.verbos.length)
   ? DGS.tipoDoObjetivo(obj) === "acompanhamento"
-  : VERBOS_RESERVA.test(semAcento(obj || ""));
+  : VERBOS_RESERVA.test(semAcento(obj || ""))
+    && !/^conferir\b[\s\S]*\bobt(er|e-l[ao]s?)\b/.test(semAcento(obj || ""));
 
 const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho",
                "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];

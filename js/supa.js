@@ -309,8 +309,10 @@ window.DG = (function () {
     // pauta abre); se a tabela ainda não existir no banco, a carga segue sem ela
     const pautas = await paginado("/pautas?select=processo_id,situacao,incluido,resumo,"
       + "proxima_sessao,ultima_sessao,consultado_em,consultado_por").catch(() => []);
+    // objetivos já cumpridos e substituídos pelo próximo: seguem nos relatórios
+    const cumpridos = await paginado("/objetivos_cumpridos?select=*&order=atingido_em").catch(() => []);
     return { membros, materias, carteiras, blocos, gatilhos, verbos,
-             processos, movimentos, transferencias, pautas };
+             processos, movimentos, transferencias, pautas, cumpridos };
   }
 
   // Guarda o resultado de uma verificação de pauta. Upsert pela mesma fila das

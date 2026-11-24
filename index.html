@@ -570,6 +570,22 @@
   }
   @media (prefers-reduced-motion: reduce) { .pv-bar i, .pv-stack i, .pv-task { transition: none; } }
 
+
+  /* ---- próximo objetivo ---- */
+  .elo-proximo { background: none; border: 0; padding: 0; margin-left: 8px; font: 600 .72rem var(--sans);
+                 color: var(--gold); border-bottom: 1px solid rgba(138,106,47,.35); border-radius: 0; cursor: pointer; }
+  .elo-proximo:hover { color: var(--gold-2); border-bottom-color: var(--gold-2); }
+  .fundo-proximo { position: fixed; inset: 0; background: rgba(28,22,14,.34); z-index: 85; }
+  .proximo-obj { position: fixed; left: 50%; top: 18vh; transform: translateX(-50%); z-index: 86;
+                 width: min(520px, calc(100vw - 28px)); background: var(--surface); border: 1px solid var(--line);
+                 border-radius: var(--r-l); box-shadow: var(--shadow-l); padding: 20px 22px; }
+  .proximo-obj h3 { margin: 0 0 4px; font-size: 1.05rem; }
+  .proximo-obj .feito-ant { margin: 10px 0 14px; padding: 9px 12px; border-radius: var(--r-s); font-size: .86rem;
+                            background: var(--green-soft); color: var(--green); }
+  .proximo-obj label { display: block; font-size: .8rem; font-weight: 600; color: var(--ink-2); margin-bottom: 6px; }
+  .proximo-obj select { width: 100%; }
+  .proximo-obj .linha-acoes { margin-top: 16px; justify-content: flex-end; }
+
   /* ---- faixa de números ---- */
   /* uma linha, não sete caixas: o número continua à mão e para de disputar a
      tela com a grade, que é o que a pessoa veio ver */
@@ -1121,6 +1137,20 @@
 </main>
 </div><!-- /corpo -->
 
+<div class="fundo-proximo" id="fundo-proximo" hidden></div>
+<div class="proximo-obj" id="proximo-obj" role="dialog" aria-modal="true" aria-labelledby="po-titulo" hidden>
+  <h3 id="po-titulo">Objetivo atingido. Qual é o próximo?</h3>
+  <p class="nota" id="po-npu" style="margin:0"></p>
+  <p class="feito-ant" id="po-anterior"></p>
+  <label for="po-select">Próximo objetivo</label>
+  <select id="po-select"></select>
+  <p class="nota" style="margin:8px 0 0">O objetivo cumprido continua contando no relatório de objetivos e no
+    Painel do setor, na data em que foi atingido.</p>
+  <div class="linha-acoes">
+    <button class="secundario" id="po-depois">Agora não</button>
+    <button class="primario" id="po-confirmar">Definir próximo objetivo</button>
+  </div>
+</div>
 <datalist id="lista-fases"></datalist>
 <div class="fundo" id="fundo" hidden></div>
 <aside class="gaveta" id="gaveta" hidden aria-label="Histórico do processo">
@@ -1274,6 +1304,7 @@ async function carregar() {
     DGS.marcarMovimentosCarregados(BD);
     DGS.transferencias = dados.transferencias || [];
     PAUTAS = new Map((dados.pautas || []).map(r => [r.processo_id, r]));
+    OBJ_CUMPRIDOS = dados.cumpridos || [];
     try { localStorage.setItem(CHAVE, JSON.stringify({ ...BD, mov: movAteDias(30) })); } catch {}
     return true;
   } catch (e) {
@@ -1677,7 +1708,9 @@ function desenhar() {
         + `<label class="atingido${p.atingido ? " feito" : ""}">`
         + `<input type="checkbox" data-atingido="${esc(n)}"${p.atingido ? " checked" : ""}>`
         + `${p.atingido ? `atingido <time>${esc(dd(paraData(p.atingido)))}</time>` : "objetivo atingido"}`
-        + `</label></div></td>`
+        + `</label>`
+        + (p.atingido && p.id && DG.escreve() ? `<button class="elo-proximo" data-proximo="${esc(n)}" title="Escolher o próximo objetivo; o atingido segue contando">próximo objetivo</button>` : "")
+        + `</div></td>`
         + `<td class="fix c5"><div class="cel">${celulaEditavel(n, p, "observacao")}</div></td>`
         + `<td class="fix c6"><div class="cel">`
         + `<span class="pri ${pri ? CLASSE_PRI[pri] : "vazia"}">${esc(pri || "—")}</span>`
@@ -1962,6 +1995,8 @@ function fecharGaveta() { $("#gaveta").hidden = true; $("#fundo").hidden = true;
 $("#grade-corpo").addEventListener("click", e => {
   const d = e.target.closest("button[data-dilig]");
   if (d) { alternarDiligencia(d); return; }
+  const prox = e.target.closest("button[data-proximo]");
+  if (prox) { abrirProximoObjetivo(prox.dataset.proximo); return; }
   const pa = e.target.closest("button[data-pauta]");
   if (pa) { verificarPautaDaLinha(pa); return; }
   const b = e.target.closest("button[data-npu]");
@@ -1984,6 +2019,7 @@ function marcarAtingido(npu, ligado) {
   const r = $("#rolagem"), x = r.scrollLeft, y = r.scrollTop;
   desenhar();
   r.scrollLeft = x; r.scrollTop = y;
+  if (ligado) abrirProximoObjetivo(npu);
 }
 $("#g-fechar").addEventListener("click", fecharGaveta);
 $("#fundo").addEventListener("click", fecharGaveta);
@@ -1997,13 +2033,16 @@ $("#g-salvar").addEventListener("click", () => {
   p.condicao = $("#g-condicao").value || "";
   p.revisado_em = carimbarAgora();   // conferiu os autos: o ritmo recomeça daqui
   const marcado = $("#g-atingido").checked;
+  const acabouDeAtingir = marcado && !p.atingido;
   if (marcado !== !!p.atingido) p.atingido = marcado ? carimbarAgora() : "";
   const resp = $("#g-resp").value;
   if (resp !== p.resp) {
     p.resp = resp;
     if (!abas().includes(resp) && resp !== SEM_RESP) BD.extras.push(resp);
   }
+  const npuSalvo = gavetaNpu;
   gravar(); fecharGaveta(); desenhar();
+  if (acabouDeAtingir) abrirProximoObjetivo(npuSalvo);
 });
 $("#g-remover").addEventListener("click", () => {
   if (!confirm(`Remover ${mascara(gavetaNpu)} da base, com o histórico de andamentos dele?`)) return;
@@ -2785,6 +2824,17 @@ function movimentoMaisRelevante(movs) {
 const OBS_SUGERE_FEITO =
   /pagamento (ja )?(feito|realizado|efetuado)|(ja )?pago\b|valor recebido|alvara (expedido|liberado)|deposito (feito|identificado)|levantado|liberado|baixa (feita|realizada|requerida)|cumprido|quitado|recebido em/;
 
+// o processo de um objetivo cumprido pode ter mudado de carteira depois
+function itemDeProcessoPorId(id) {
+  const npu = (BD.ordem || []).find(n => (BD.processos[n] || {}).id === id);
+  if (!npu) return null;
+  const p = BD.processos[npu], movs = movsDe(npu);
+  return { npu, mascara: mascara(npu), fase: String(p.fase || "").trim(), prioridade: p.prioridade || "",
+           carteira: p.carteira || "", bloco: p.bloco_codigo || "", origem: p.origem_bloco || "",
+           categoria: p.categoria || "propria", grupo: p.grupo || "", erro: "", juizo: p.juizo || "",
+           movs, ultimo: movs.length ? movs[movs.length - 1] : null, julgamentos: 0 };
+}
+
 function dadosObjetivos(aba) {
   const npus = daAba(aba);
   const itens = npus.map(n => {
@@ -2806,10 +2856,22 @@ function dadosObjetivos(aba) {
       julgamentos: movs.filter(m => m.tipo === "sentenca" || m.tipo === "acordao").length,
     };
   });
-  const conclusao = itens.filter(i => !i.acompanha && !i.semObjetivo);
-  const acompanhamento = itens.filter(i => i.acompanha);
+  // objetivos já cumpridos e trocados pelo próximo: entram nas contas de quem era
+  // o responsável quando foram atingidos, com os dados do processo
+  const porId = new Map(itens.map(i => [BD.processos[i.npu] && BD.processos[i.npu].id, i]));
+  const membroDaAba = (DGS.ref.membros || []).find(m => m.nome === aba);
+  const cumpridos = OBJ_CUMPRIDOS
+    .filter(c => membroDaAba ? c.responsavel_id === membroDaAba.id : false)
+    .map(c => {
+      const base = porId.get(c.processo_id) || itemDeProcessoPorId(c.processo_id) || {};
+      return { ...base, objetivo: c.objetivo, acompanha: ehAcompanhamento(c.objetivo), semObjetivo: false,
+               atingido: c.atingido_em, historico: true, observacao: "" };
+    })
+    .filter(c => c.npu);
+  const conclusao = itens.filter(i => !i.acompanha && !i.semObjetivo).concat(cumpridos.filter(c => !c.acompanha));
+  const acompanhamento = itens.filter(i => i.acompanha).concat(cumpridos.filter(c => c.acompanha));
   return {
-    itens, conclusao, acompanhamento,
+    itens, cumpridos, conclusao, acompanhamento,
     semObjetivo: itens.filter(i => i.semObjetivo),
     atingidos: conclusao.filter(i => i.atingido),
     emAberto: conclusao.filter(i => !i.atingido),
@@ -2823,7 +2885,7 @@ function relatorioObjetivos(aba) {
     avisar(`A aba de ${aba} está sem processos. Importe a base e consulte antes de gerar o relatório de objetivos.`, true);
     return;
   }
-  const { itens, conclusao, acompanhamento, semObjetivo, atingidos, emAberto, registrados } = d;
+  const { itens, cumpridos, conclusao, acompanhamento, semObjetivo, atingidos, emAberto, registrados } = d;
   const pct = conclusao.length ? Math.round(atingidos.length * 100 / conclusao.length) : 0;
   const agora = new Date();
   const mesAno = `${MESES[agora.getMonth()]} de ${agora.getFullYear()}`;
@@ -2853,7 +2915,7 @@ function relatorioObjetivos(aba) {
 
   // ---- 3.1 registros por data
   const porData = new Map();
-  for (const i of itens.filter(x => x.atingido)) {
+  for (const i of itens.concat(cumpridos).filter(x => x.atingido)) {
     const dia = soDia(i.atingido);
     if (!porData.has(dia)) porData.set(dia, { conclusao: 0, acompanha: 0 });
     porData.get(dia)[i.acompanha ? "acompanha" : "conclusao"]++;
@@ -2906,7 +2968,7 @@ function relatorioObjetivos(aba) {
 
   // ---- 3.5 distribuição por origem (item 3.1: a etiqueta acompanha o processo)
   const porOrigem = new Map();
-  for (const i of itens) {
+  for (const i of itens.concat(cumpridos)) {
     const chave = i.bloco ? `${i.bloco} — ${i.origem || "origem própria"}`
                           : (i.categoria === "propria" ? "Carteira própria" : "Sem bloco");
     if (!porOrigem.has(chave)) porOrigem.set(chave, []);
@@ -2917,7 +2979,8 @@ function relatorioObjetivos(aba) {
     .map(([nome, l]) => {
       const c = l.filter(x => !x.acompanha && !x.semObjetivo);
       const at = c.filter(x => x.atingido).length;
-      return [nome, l.length, l.filter(x => x.categoria === "tutelada").length,
+      const proc = l.filter(x => !x.historico);
+      return [nome, proc.length, proc.filter(x => x.categoria === "tutelada").length,
               c.length, at, c.length ? `${Math.round(at * 100 / c.length)}%` : "—"];
     });
 
@@ -2925,7 +2988,8 @@ function relatorioObjetivos(aba) {
   const linhasPri = [...PRIORIDADES, ""].map(pri => {
     const naFaixa = itens.filter(i => (i.prioridade || "") === pri);
     if (!naFaixa.length) return null;
-    const c = naFaixa.filter(i => !i.acompanha && !i.semObjetivo);
+    const c = naFaixa.filter(i => !i.acompanha && !i.semObjetivo)
+      .concat(cumpridos.filter(i => !i.acompanha && (i.prioridade || "") === pri));
     const at = c.filter(i => i.atingido).length;
     return [pri || "Sem prioridade", naFaixa.length, c.length, at, c.length - at,
             c.length ? `${Math.round(at * 100 / c.length)}%` : "—",
@@ -2955,7 +3019,9 @@ function relatorioObjetivos(aba) {
   const ultimoTexto = i => i.ultimo
     ? `${dd(paraData(i.ultimo.data))} · ${i.ultimo.texto}`
     : { t: "Sem andamento no período", c: "mudo" };
-  const situacaoDe = i => i.acompanha
+  const situacaoDe = i => i.historico
+    ? { t: `Cumprido em ${dd(paraData(i.atingido))} (objetivo anterior)`, c: "feito" }
+    : i.acompanha
     ? (i.atingido ? { t: `Registrado em ${dd(paraData(i.atingido))}`, c: "feito" }
                   : { t: "Em acompanhamento", c: "aberto" })
     : (i.atingido ? { t: `Atingido em ${dd(paraData(i.atingido))}`, c: "feito" }
@@ -4815,6 +4881,69 @@ $("#tela-plano").addEventListener("change", e => {
 setInterval(() => { if (DG.logado && telaAtiva === "plano" && !document.hidden) carregarPlano(true); }, 30000);
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && DG.logado && telaAtiva === "plano") carregarPlano(true);
+});
+
+// ================================================================ próximo objetivo
+// Atingido o objetivo, a pessoa escolhe o próximo numa lista com todos os
+// objetivos já usados na base. O cumprido vai para objetivos_cumpridos e segue
+// contando no relatório e no Painel (sql/010).
+let OBJ_CUMPRIDOS = [];
+let proximoNpu = "";
+
+function objetivosConhecidos() {
+  const todos = new Set();
+  for (const n of BD.ordem || []) {
+    const o = String((BD.processos[n] || {}).objetivo || "").replace(/\s+/g, " ").trim();
+    if (o) todos.add(o);
+  }
+  for (const c of OBJ_CUMPRIDOS) { const o = String(c.objetivo || "").trim(); if (o && o !== "(sem objetivo)") todos.add(o); }
+  return [...todos].sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
+function abrirProximoObjetivo(npu) {
+  const p = BD.processos[npu];
+  if (!p || !p.id || !p.atingido || !DG.escreve()) return;
+  proximoNpu = npu;
+  const lista = objetivosConhecidos();
+  const conclusao = lista.filter(o => !ehAcompanhamento(o)), acomp = lista.filter(o => ehAcompanhamento(o));
+  const opcoes = l => l.map(o => `<option${o === p.objetivo ? " disabled" : ""}>${esc(o)}</option>`).join("");
+  $("#po-select").innerHTML = `<option value="">Escolha o próximo objetivo…</option>`
+    + (conclusao.length ? `<optgroup label="De conclusão (contam no percentual)">${opcoes(conclusao)}</optgroup>` : "")
+    + (acomp.length ? `<optgroup label="De acompanhamento">${opcoes(acomp)}</optgroup>` : "");
+  $("#po-npu").textContent = `${mascara(npu)}${p.resp ? " · " + p.resp : ""}`;
+  $("#po-anterior").textContent = `✓ ${p.objetivo || "Objetivo sem descrição"} — atingido em ${dd(paraData(p.atingido))}`;
+  $("#fundo-proximo").hidden = false; $("#proximo-obj").hidden = false;
+  $("#po-select").focus();
+}
+function fecharProximoObjetivo() {
+  $("#fundo-proximo").hidden = true; $("#proximo-obj").hidden = true; proximoNpu = "";
+}
+
+function definirProximoObjetivo() {
+  const p = BD.processos[proximoNpu], novo = $("#po-select").value;
+  if (!p || !p.id) return fecharProximoObjetivo();
+  if (!novo) { $("#po-select").focus(); return; }
+  // pela mesma fila das outras escritas: a marcação de atingido sobe antes da troca
+  DG.enfileirar({ rpc: "dg_proximo_objetivo", args: { p_processo: p.id, p_objetivo: novo } });
+  OBJ_CUMPRIDOS.push({ processo_id: p.id, objetivo: p.objetivo || "(sem objetivo)", atingido_em: p.atingido,
+                       responsavel_id: p.responsavel_id, registrado_por: DG.meuId() });
+  const anterior = p.objetivo, npu = proximoNpu;
+  p.objetivo = novo; p.atingido = ""; p.condicao = ""; p.revisado_em = carimbarAgora();
+  // a troca já está na fila; o espelho passa a contar com ela, para não reenviar campo a campo
+  DGS.espelhar(BD);
+  fecharProximoObjetivo();
+  const r = $("#rolagem"), x = r ? r.scrollLeft : 0, y = r ? r.scrollTop : 0;
+  desenhar();
+  if (r) { r.scrollLeft = x; r.scrollTop = y; }
+  if (gavetaNpu === npu) abrirGaveta(npu);
+  avisar(`Novo objetivo em ${mascara(npu)}: “${novo}”. O anterior (“${anterior || "—"}”) segue contando como atingido.`);
+}
+$("#po-confirmar").addEventListener("click", definirProximoObjetivo);
+$("#po-depois").addEventListener("click", fecharProximoObjetivo);
+$("#fundo-proximo").addEventListener("click", fecharProximoObjetivo);
+$("#proximo-obj").addEventListener("keydown", e => {
+  if (e.key === "Escape") { e.stopPropagation(); fecharProximoObjetivo(); }
+  else if (e.key === "Enter" && e.target.id === "po-select") definirProximoObjetivo();
 });
 
 // ================================================ várias pessoas ao mesmo tempo

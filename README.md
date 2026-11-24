@@ -113,6 +113,14 @@ do tribunal e conta no percentual de atingimento. "Conferir", "Validar",
 eles ficam fora da conta. A lista mora na tabela `objetivo_verbos`, e não no
 código, para que a gestora possa acrescentar um verbo sem esperar deploy.
 
+**Próximo objetivo.** Ao marcar um objetivo como atingido, o sistema pergunta o
+próximo, numa lista com todos os objetivos já usados na base (link "próximo
+objetivo" na linha, para quem já estava atingido). O cumprido vai para
+`objetivos_cumpridos` (`sql/010_objetivos_cumpridos.sql`) e **continua contando**
+no relatório de objetivos e no Painel do setor, na data em que foi atingido e
+para quem era o responsável naquele momento. A troca é feita pela função
+`dg_proximo_objetivo`, numa transação só, e fica no histórico do processo.
+
 Uma exceção: "Conferir" que também manda obter o ato ("Conferir intimação e
 obtê-la se ausente", "Conferir prazo e obter intimação") conta como conclusão.
 "Monitorar ... e obter" e "Conferir arquivamento e validar ato residual" seguem

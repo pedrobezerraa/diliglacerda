@@ -6,7 +6,7 @@
 <title>DiliGLA · acompanhamento de diligências</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!-- SheetJS vai junto com a aplicação, e não de um CDN: já aconteceu de o CDN
      falhar para uma pessoa do setor e derrubar o relatório inteiro. -->
 <script src="vendor/xlsx.min.js"></script>
@@ -461,6 +461,115 @@
   .linha-tempo a, .pauta-fontes a { color: var(--gold); font-size: .8rem; font-weight: 600; }
   .pauta-fontes { display: flex; gap: 6px 16px; flex-wrap: wrap; margin-top: 14px; font-size: .78rem; color: var(--muted); }
 
+
+  /* ---- plano vivíssima ----
+     O desenho é o do plano original (régua de dias, carga empilhada por pessoa,
+     micrometas do dia, frentes, metas por semana), nas cores do escritório e com
+     a Archivo nos títulos. Tudo fica dentro de #tela-plano, com prefixo pv-, para
+     não colidir com as classes da grade. */
+  #tela-plano { --pv-b: #AC7A3B; --pv-p: #3D5A80; --pv-a: #7A4E8C; --pv-sand: #F4ECDF;
+                --pv-gold: #AC7A3B; --pv-gold2: #8C5E27; --pv-ok: #2F7D4F; padding-top: 6px; }
+  #tela-plano h1, #tela-plano h2, #tela-plano h3 { font-family: Archivo, var(--sans); line-height: 1.05;
+                                                   text-wrap: balance; margin: 0; }
+  #tela-plano h1 { font-size: clamp(28px, 3.6vw, 42px); font-weight: 800; letter-spacing: -.01em; }
+  #tela-plano h2 { font-size: 22px; font-weight: 800; }
+  #tela-plano h3 { font-size: 16px; font-weight: 600; }
+  .pv-topo { background: var(--pv-sand); border: 1px solid var(--line); border-radius: var(--r-l);
+             padding: clamp(18px, 2.6vw, 32px); box-shadow: var(--shadow-s); }
+  .pv-firm { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 13px;
+             color: var(--muted); margin-bottom: 12px; }
+  .pv-firm b { color: var(--ink); font-family: Archivo, var(--sans); font-weight: 800; font-size: 14px; letter-spacing: .02em; }
+  .pv-carregar { margin-top: 18px; padding: 14px 16px; border: 1px dashed var(--line-3); border-radius: 12px; background: var(--surface); }
+  .pv-carregar p { margin: 0 0 10px; font-size: .9rem; color: var(--ink-2); }
+  .pv-arquivo { position: relative; }
+  .pv-arquivo input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .pv-lede { color: var(--ink-2); max-width: 78ch; margin: 10px 0 0; font-size: .95rem; line-height: 1.6; }
+  .pv-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 20px; }
+  .pv-kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 13px 16px; }
+  .pv-kpi .n { font-family: Archivo, var(--sans); font-weight: 800; font-size: clamp(21px, 2.3vw, 28px); white-space: nowrap; }
+  .pv-kpi .l { font-size: 13px; color: var(--muted); }
+  .pv-bar { height: 8px; border-radius: 6px; background: var(--line); overflow: hidden; margin-top: 8px; display: flex; }
+  .pv-bar i { display: block; height: 100%; transition: width .4s; }
+  .pv-ctrl { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 16px 0 6px; }
+  .pv-chip { min-height: 40px; padding: 0 15px; border-radius: 22px; border: 1px solid var(--line-2);
+             background: var(--surface); color: var(--ink); font: 500 14px var(--sans); cursor: pointer;
+             display: inline-flex; align-items: center; gap: 8px; }
+  .pv-chip:hover { border-color: var(--line-3); }
+  .pv-chip[aria-pressed=true] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .pv-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+  .pv-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+  .pv-corpo { margin-top: 22px; }
+  .pv-days { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 8px 2px 12px; }
+  .pv-day { scroll-snap-align: start; flex: 0 0 92px; border: 1px solid var(--line); background: var(--surface);
+            border-radius: 12px; padding: 10px 10px 8px; cursor: pointer; text-align: left; color: var(--ink); font: inherit; }
+  .pv-day:hover { border-color: var(--line-3); }
+  .pv-day[aria-pressed=true] { border-color: var(--pv-gold); box-shadow: 0 0 0 2px var(--pv-gold) inset; }
+  .pv-day.hoje .w::after { content: " · hoje"; color: var(--pv-gold2); font-weight: 600; }
+  .pv-day .d { font-family: Archivo, var(--sans); font-weight: 800; font-size: 20px; }
+  .pv-day .w { font-size: 13px; color: var(--muted); }
+  .pv-stack { display: flex; flex-direction: column-reverse; height: 56px; margin: 6px 0; border-radius: 6px;
+              overflow: hidden; background: var(--pv-sand); }
+  .pv-stack i { display: block; width: 100%; transition: height .4s; }
+  .pv-day .c { font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .pv-sync { font-size: 13px; color: var(--muted); margin: 0; }
+  .pv-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+  .pv-person { margin: 18px 0 6px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .pv-person .p { margin-left: auto; font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .pv-task { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 10px; align-items: start;
+             border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin: 8px 0; background: var(--surface);
+             transition: opacity .2s; }
+  .pv-task.feita { opacity: .55; }
+  .pv-task.feita .pv-acao { text-decoration: line-through; }
+  .pv-task input[type=checkbox] { width: 26px; height: 26px; margin: 9px; accent-color: var(--pv-gold); cursor: pointer; }
+  .pv-task input[type=checkbox]:disabled { cursor: not-allowed; }
+  .pv-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 13px; color: var(--muted); }
+  .pv-tag { font-size: 13px; padding: 2px 8px; border-radius: 10px; background: var(--pv-sand); color: var(--ink); white-space: nowrap; }
+  .pv-npu { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+  button.pv-npu { background: none; border: 0; padding: 0; border-bottom: 1px solid rgba(138,106,47,.35); border-radius: 0;
+                  font: 600 13px var(--sans); color: var(--ink); cursor: pointer; }
+  button.pv-npu:hover { color: var(--pv-gold2); border-bottom-color: var(--pv-gold2); }
+  .pv-acao { margin: 4px 0 0; font-size: 15px; }
+  .pv-nota { font-size: 13px; color: var(--pv-gold2); margin: 4px 0 0; }
+  .pv-quem { font-size: 12px; color: var(--muted); margin: 4px 0 0; }
+  .pv-val { font-weight: 600; white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+  #tela-plano select { min-height: 38px; font: 14px var(--sans); border-radius: 8px; border: 1px solid var(--line-2);
+                       background: var(--surface); color: var(--ink); padding: 0 8px; }
+  .pv-side .pv-box { border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: var(--surface); margin-bottom: 16px; }
+  .pv-side ol { padding-left: 20px; margin: 8px 0 0; font-size: .9rem; }
+  .pv-side li { margin: 6px 0; }
+  .pv-frow { margin: 12px 0; }
+  .pv-frow .t { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+  .pv-frow .t span:last-child { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .pv-legenda { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+  .pv-tabela { width: 100%; border-collapse: collapse; font-size: 14px; background: var(--surface); }
+  .pv-tabela th, .pv-tabela td { padding: 8px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  .pv-tabela th { background: var(--pv-sand); font-weight: 600; }
+  .pv-tabela td.r, .pv-tabela th.r { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .pv-rolagem { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+  .pv-vazio { color: var(--muted); padding: 20px 0; }
+  .pv-copia { border: 0; background: none; color: var(--pv-gold2); cursor: pointer; font: 600 13px var(--sans);
+              min-height: 28px; padding: 0 4px; }
+  .pv-goals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .pv-goal { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: var(--surface); }
+  .pv-goal ul { margin: 8px 0 0; padding-left: 18px; font-size: 14px; }
+  .pv-goal li { margin: 4px 0; }
+  @media (max-width: 1100px) { .pv-grid { grid-template-columns: minmax(0, 1fr); }
+                               .pv-goals { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 640px) {
+    .pv-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .pv-goals { grid-template-columns: minmax(0, 1fr); }
+    .pv-task { grid-template-columns: 40px minmax(0, 1fr); }
+    .pv-task .pv-val { grid-column: 2; text-align: left; }
+    .pv-tabs { margin-left: 0; }
+    .pv-tabela { font-size: 13px; }
+    .pv-tabela thead { display: none; }
+    .pv-tabela tr { display: grid; padding-block: 10px; }
+    .pv-tabela td { display: flow-root; border: 0; padding: 3px 0; padding-inline-start: 8em; text-align: start; }
+    .pv-tabela td::before { content: attr(data-l); float: inline-start; width: 7.5em; margin-inline-start: -8em; color: var(--muted); }
+    .pv-tabela td.r { text-align: start; }
+  }
+  @media (prefers-reduced-motion: reduce) { .pv-bar i, .pv-stack i, .pv-task { transition: none; } }
+
   /* ---- faixa de números ---- */
   /* uma linha, não sete caixas: o número continua à mão e para de disputar a
      tela com a grade, que é o que a pessoa veio ver */
@@ -785,7 +894,8 @@
      estreita ele desce e vira barra no pé, que é onde o polegar alcança. -->
 <aside class="trilho">
   <nav class="navegacao" id="navegacao" hidden aria-label="Telas">
-    <button data-tela="carteiras" title="Carteiras" aria-current="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h18v12H3z"/><path d="M3 11h18"/><path d="M9 7V5h6v2"/></svg><span>Carteiras</span></button>
+    <button data-tela="plano" title="Plano Vivíssima até 18/12" aria-current="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4h12l-2.5 4L17 12H5"/></svg><span>Plano Vivíssima</span></button>
+    <button data-tela="carteiras" title="Carteiras" aria-current="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h18v12H3z"/><path d="M3 11h18"/><path d="M9 7V5h6v2"/></svg><span>Carteiras</span></button>
     <button data-tela="divisao" title="Divisão das Carteiras"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2.6" width="6" height="5" rx="1.3"/><rect x="2.4" y="16.4" width="6" height="5" rx="1.3"/><rect x="15.6" y="16.4" width="6" height="5" rx="1.3"/><path d="M12 7.6v3.4"/><path d="M5.4 16.4V11h13.2v5.4"/></svg><span>Divisão</span></button>
     <button data-tela="pauta" title="Pauta de julgamento"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="m9 15 2 2 4-4"/></svg><span>Pauta</span></button>
     <button data-tela="passagens" title="Passagens entre carteiras"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h13l-3-3"/><path d="M20 16H7l3 3"/></svg><span>Passagens</span><i class="conta" id="conta-passagens" hidden>0</i></button>
@@ -802,7 +912,64 @@
     <button class="secundario" id="novidade-depois">Agora não</button>
   </div>
   <div class="aviso" id="aviso" hidden></div>
-  <div id="tela-carteiras">
+  <!-- ================================================== plano vivíssima até 18/12 -->
+  <div id="tela-plano" hidden>
+    <header class="pv-topo">
+      <div class="pv-firm"><b>GUIMARÃES &amp; LACERDA ADVOGADOS</b><span id="pv-base"></span></div>
+      <h1 id="pv-titulo">Plano de trabalho</h1>
+      <p class="pv-lede" id="pv-lede"></p>
+      <div class="pv-carregar" id="pv-carregar" hidden>
+        <p id="pv-carregar-txt"></p>
+        <label class="pv-chip pv-arquivo"><input type="file" id="pv-arquivo" accept=".html,.htm">Escolher o HTML do plano…</label>
+      </div>
+      <div class="pv-kpis" id="pv-kpis"></div>
+      <div class="pv-ctrl" id="pv-pessoas" role="group" aria-label="Responsável"></div>
+    </header>
+
+    <section class="pv-corpo">
+      <div class="pv-ctrl"><h2 id="pv-titulo-dia">Micrometas do dia</h2>
+        <div class="pv-tabs" role="group" aria-label="Visão">
+          <button class="pv-chip" data-pv-visao="dia" aria-pressed="true">Dia</button>
+          <button class="pv-chip" data-pv-visao="proc" aria-pressed="false">Processos</button>
+          <button class="pv-chip" data-pv-visao="meta" aria-pressed="false">Metas por semana</button>
+        </div></div>
+      <div class="pv-days" id="pv-dias" aria-label="Dias úteis até 18/12"></div>
+      <p class="pv-sync" id="pv-sync">Carregando o andamento salvo da equipe…</p>
+
+      <div id="pv-visao-dia" class="pv-grid">
+        <div id="pv-lista"></div>
+        <aside class="pv-side">
+          <div class="pv-box"><h3>Valor por frente e situação</h3><div id="pv-frentes"></div>
+            <p class="pv-legenda">Barra: verde = depósito, bloqueio ou determinação obtidos; dourado = alvará expedido. Valores: honorários do Panorama (contratuais e sucumbência). Alvarás já expedidos estão fora do plano.</p></div>
+          <div class="pv-box"><h3>Roteiro de análise de cada processo</h3><ol>
+            <li><b>O objetivo foi atingido?</b> Conferir no PJe. Se sim, registrar no DiliGLA e marcar a situação aqui.</li>
+            <li><b>Não foi:</b> diligenciar a obtenção junto à secretaria, pelo Balcão Virtual.</li>
+            <li><b>Falta documento</b> (dados bancários, procuração, declaração ou outro): acionar o setor de comunicação.</li>
+            <li><b>Falta petição:</b> conferir o prazo no eLaw. Aberto: acompanhar a conclusão e depois diligenciar. Sem prazo aberto: comunicar a coordenação.</li>
+            <li><b>Determinação obtida:</b> solicitar a expedição do alvará no mesmo dia.</li></ol></div>
+          <div class="pv-box"><h3>Rotina de cada dia</h3><ol>
+            <li><b>Abrir pelo que gera dinheiro:</b> expedições, determinações e RPV já pagas da lista do dia.</li>
+            <li><b>Depois, os retornos:</b> setor de comunicação, prazos do eLaw e respostas do Balcão Virtual.</li>
+            <li><b>Fechar no DiliGLA:</b> registrar com o ato e a data, marcar aqui a situação e avisar a coordenação de todo alvará expedido ou depósito obtido.</li></ol></div>
+          <div class="pv-box"><h3>Regras do plano</h3><ol>
+            <li><b>Ordem de prioridade:</b> o que está mais perto da expedição vem primeiro (aguardando expedição, depois petição de alvará já juntada, depois o restante) e, dentro de cada etapa, o maior valor.</li><li>Prazo útil de expedição: <b>11/12</b>; o alvará ainda precisa ser levantado até 18/12.</li><li>Alvarás já expedidos (conciliação de recebimento) estão fora do plano e da meta.</li><li>RPV que só vencem em 2027: diligência de adiantamento junto à PGE, fora da meta.</li>
+            <li>Processos com cessão e sem honorário (R$ 0,00) ficam no fim de cada lista.</li>
+            <li>Carga equilibrada: até 8 micrometas por dia para a Bruna, 5 para o Pedro e 4 para a Ana (exceto 25/11, dia da diligência na PGE).</li><li>08/12 é feriado municipal no Recife: sem micrometas.</li>
+            <li>O Panorama prevalece sobre o relatório do DiliGLA.</li></ol></div>
+        </aside>
+      </div>
+
+      <div id="pv-visao-proc" hidden>
+        <div class="pv-ctrl"><select id="pv-f-frente" aria-label="Frente"></select><select id="pv-f-situacao" aria-label="Situação"></select><span class="pv-sync" id="pv-conta-proc"></span></div>
+        <div class="pv-rolagem"><table class="pv-tabela" id="pv-tabela-proc"><thead><tr><th>Processo</th><th>Grupo</th><th>Frente</th><th>Responsável</th><th class="r">Valor</th><th>Situação</th></tr></thead><tbody></tbody></table></div>
+      </div>
+
+      <div id="pv-visao-meta" hidden><div class="pv-goals" id="pv-metas"></div>
+        <p class="pv-legenda">As metas de valor são referências para o acompanhamento e podem ser ajustadas pela coordenação; dependem de ato do juízo.</p></div>
+    </section>
+  </div>
+
+  <div id="tela-carteiras" hidden>
 
   <!-- importar base -->
   <section class="painel" id="painel-importar" hidden>
@@ -3180,8 +3347,8 @@ $("#g-propor").addEventListener("click", async () => {
 // ==================================================================== telas
 // A grade de carteiras é a tela de sempre. As três novas — passagens, painel
 // do setor e equipe — são irmãs dela e trocam pelo menu do topo.
-let telaAtiva = "carteiras";
-const TELAS = ["carteiras", "divisao", "pauta", "passagens", "painel", "equipe"];
+let telaAtiva = "plano";
+const TELAS = ["plano", "carteiras", "divisao", "pauta", "passagens", "painel", "equipe"];
 
 // O cabeçalho é grudado no topo e muda de altura quando os botões quebram de
 // linha. O trilho gruda logo abaixo dele, então precisa do número medido, e não
@@ -3202,6 +3369,7 @@ function mostrarTela(nome) {
   }
   $("#abas").hidden = nome !== "carteiras";
   for (const b of $$("#navegacao button")) b.setAttribute("aria-current", String(b.dataset.tela === nome));
+  if (nome === "plano")     { desenharPlano(); carregarPlano(); }
   if (nome === "divisao")   desenharDivisao();
   if (nome === "pauta")     desenharPauta();
   if (nome === "passagens") desenharPassagens();
@@ -3883,7 +4051,7 @@ async function abrirSistema() {
   catch (e) { console.error(e); avisar("Algo deu errado ao desenhar a tela; recarregue a página.", true); }
   desenharPassagens();
   contarHoje();
-  mostrarTela("carteiras");
+  mostrarTela("plano");
   vigiarBase();
   if (!BD.ordem.length && DG.escreve()) {
     avisar("A base está vazia. Abra “Importar base” e carregue a aba da sua carteira "
@@ -4330,6 +4498,324 @@ async function verificarPautaDaLista() {
     + (pautaEstado.falhas ? ` ${pautaEstado.falhas} ficaram sem resposta e podem ser verificados de novo.` : "")
     + (DG.escreve() ? "" : " Você está como leitura: o resultado não foi guardado no banco."), !!pautaEstado.falhas && !sucessos);
 }
+
+// ===================================================== plano vivíssima até 18/12
+// A aba principal. O plano (dias, processos, micrometas, metas por semana) vem da
+// tabela planos, carregado do HTML do plano; o andamento — micrometa cumprida e
+// situação de cada processo — fica em plano_marcas e plano_situacoes e é o mesmo
+// para todos: quem marca, marca para a equipe inteira.
+// O plano em si tem número de processo e valor de honorário, então mora no banco
+// (tabela planos, sql/009), atrás do login, e não num arquivo do repositório,
+// que é público. Quem tem acesso de administração carrega o HTML do plano pela
+// própria tela, uma vez.
+let PV = { id: "", days: [], procs: [], tasks: [], goals: [], cabecalho: {} };
+const PV_COR = { Bruna: "var(--pv-b)", Pedro: "var(--pv-p)", Ana: "var(--pv-a)" };
+const PV_NOME = { Bruna: "Bruna", Pedro: "Pedro Miguel", Ana: "Ana Letícia" };
+const PV_SITUACOES = ["Pendente", "Comunicação acionada", "Prazo aberto no eLaw", "Coordenação comunicada",
+                      "Depositado ou bloqueado", "Determinado", "Expedido", "Impedimento"];
+const PV_DIA_SEM = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+const pvBRL = v => Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+const pvDD = d => { const [, m, x] = d.split("-"); return x + "/" + m; };
+const pvHoje = () => carimbarAgora().slice(0, 10);          // data local, não UTC
+let pvProc = {};
+
+const pvEstado = {
+  marcas: new Map(),       // id da micrometa -> { feito, por, em }
+  situacoes: new Map(),    // npu do plano -> { situacao, por, em }
+  quem: "Todos", visao: "dia",
+  dia: "", carregado: false, planoLido: false, erro: "",
+};
+const pvFeito = id => !!(pvEstado.marcas.get(id) || {}).feito;
+const pvSit = npu => (pvEstado.situacoes.get(npu) || {}).situacao || "Pendente";
+const pvMinha = t => pvEstado.quem === "Todos" || t.who === pvEstado.quem;
+const pvDoFiltro = p => pvEstado.quem === "Todos" || p.who === pvEstado.quem;
+
+function pvUsarPlano(linha) {
+  const d = (linha && linha.dados) || {};
+  PV = { id: linha ? linha.id : "", days: d.days || [], procs: d.procs || [], tasks: d.tasks || [],
+         goals: d.goals || [], cabecalho: d.cabecalho || {} };
+  pvProc = {};
+  for (const p of PV.procs) pvProc[p.npu] = p;
+  if (!PV.days.includes(pvEstado.dia)) pvEstado.dia = PV.days.find(x => x >= pvHoje()) || PV.days[0] || "";
+}
+
+async function carregarPlano(silencioso) {
+  try {
+    // o conteúdo do plano só se lê uma vez; o andamento, sempre
+    if (!pvEstado.planoLido) {
+      const l = await DG.ler("/planos?ativo=eq.true&select=*&order=criado_em.desc&limit=1");
+      pvUsarPlano(l && l[0]);
+      pvEstado.planoLido = true;
+    }
+    if (PV.id) {
+      const [marcas, situacoes] = await Promise.all([
+        DG.ler(`/plano_marcas?plano=eq.${encodeURIComponent(PV.id)}&select=tarefa,feito,por,em`),
+        DG.ler(`/plano_situacoes?plano=eq.${encodeURIComponent(PV.id)}&select=npu,situacao,por,em`),
+      ]);
+      // o que a pessoa acabou de marcar e ainda está na fila não pode ser desfeito
+      // por uma leitura que saiu antes da gravação
+      if (DG.pendentes) return;
+      pvEstado.marcas = new Map((marcas || []).map(m => [m.tarefa, m]));
+      pvEstado.situacoes = new Map((situacoes || []).map(s => [s.npu, s]));
+    }
+    pvEstado.carregado = true; pvEstado.erro = "";
+  } catch (e) {
+    pvEstado.erro = /relation|does not exist|404|schema cache/i.test(e.message)
+      ? "as tabelas do plano ainda não existem no banco (sql/008_plano.sql e sql/009_planos.sql)."
+      : e.message;
+  }
+  // um select aberto não pode sumir debaixo do mouse
+  const foco = document.activeElement;
+  if (silencioso && foco && foco.tagName === "SELECT" && foco.closest("#tela-plano")) return;
+  if (telaAtiva === "plano") desenharPlano();
+}
+
+// Lê o HTML do plano como dado, sem executar nada dele: o JSON embutido
+// (<script id="plan">), as metas por semana (const GOALS) e os textos do topo.
+function lerHtmlDoPlano(texto) {
+  const m = /<script id="plan" type="application\/json">([\s\S]*?)<\/script>/.exec(texto);
+  if (!m) throw new Error("não achei os dados do plano neste arquivo (o bloco <script id=\"plan\">).");
+  const dados = JSON.parse(m[1]);
+  if (!Array.isArray(dados.days) || !Array.isArray(dados.procs) || !Array.isArray(dados.tasks)) {
+    throw new Error("os dados do plano não têm dias, processos e micrometas.");
+  }
+  const g = /const GOALS=(\[[\s\S]*?\]);\s*\n/.exec(texto);
+  const goals = g ? JSON.parse(g[1]) : [];
+  const doc = new DOMParser().parseFromString(texto, "text/html");
+  const txt = s => ((doc.querySelector(s) || {}).textContent || "").replace(/\s+/g, " ").trim();
+  const cabecalho = { titulo: txt("h1") || "Plano de trabalho", base: txt(".firm span"), lede: txt(".lede") };
+  const id = `plano-${dados.days[0]}-a-${dados.days[dados.days.length - 1]}`;
+  return { id, titulo: cabecalho.titulo, dados: { cabecalho, days: dados.days, procs: dados.procs, tasks: dados.tasks, goals } };
+}
+
+async function carregarArquivoDoPlano(arquivo) {
+  const el = $("#pv-carregar-txt");
+  try {
+    const plano = lerHtmlDoPlano(await arquivo.text());
+    const d = plano.dados;
+    if (!confirm(`Carregar “${plano.titulo}”?\n\n${d.days.length} dias úteis, ${d.procs.length} processos, `
+               + `${d.tasks.length} micrometas e ${d.goals.length} blocos de metas por semana.\n\n`
+               + "Ele passa a ser o plano da aba principal para toda a equipe.")) return;
+    el.textContent = "Gravando o plano no banco…";
+    // os planos anteriores saem de cena, mas o andamento deles continua guardado
+    await DG.req("PATCH", "/rest/v1/planos?ativo=eq.true", { ativo: false }, true);
+    await DG.req("POST", "/rest/v1/planos?on_conflict=id",
+                 [{ ...plano, ativo: true, criado_por: DG.meuId() }], true, "resolution=merge-duplicates");
+    pvEstado.planoLido = false;
+    await carregarPlano();
+    avisar(`Plano carregado: ${d.procs.length} processos e ${d.tasks.length} micrometas, visíveis para toda a equipe.`);
+  } catch (e) {
+    el.textContent = `Não deu para carregar o plano: ${e.message}`;
+  }
+}
+
+function pvNotaSync() {
+  const el = $("#pv-sync");
+  if (!el) return;
+  if (pvEstado.erro) { el.textContent = `Não consegui carregar o andamento da equipe: ${pvEstado.erro}`; return; }
+  if (!pvEstado.carregado) { el.textContent = "Carregando o andamento salvo da equipe…"; return; }
+  el.textContent = DG.escreve()
+    ? "Andamento compartilhado com a equipe: toda marcação fica salva para todos e aparece na tela dos outros em até meio minuto."
+    : "Você está com acesso de leitura: enxerga o andamento da equipe, mas não marca.";
+}
+
+function desenharPlano() {
+  if (!$("#tela-plano")) return;
+  const cab = PV.cabecalho || {};
+  $("#pv-titulo").textContent = PV.id ? (cab.titulo || "Plano de trabalho") : "Plano de trabalho";
+  $("#pv-base").textContent = cab.base || "";
+  $("#pv-lede").textContent = cab.lede || "";
+  // sem plano no banco: a administração carrega; os demais aguardam
+  const semPlano = pvEstado.carregado && !PV.id;
+  $("#pv-carregar").hidden = !(semPlano || (DG.gestora() && PV.id && pvEstado.trocar));
+  $("#pv-carregar-txt").textContent = semPlano
+    ? (DG.gestora() ? "Ainda não há plano carregado. Escolha o arquivo HTML do plano: os dias, processos, micrometas e metas dele passam para o banco e ficam visíveis para toda a equipe."
+                    : "Ainda não há plano carregado. Quem tem acesso de administração carrega o plano por esta tela.")
+    : "Escolha o HTML do novo plano. O andamento do plano atual continua guardado.";
+  $("#pv-arquivo").closest("label").hidden = !DG.gestora();
+  $(".pv-corpo").hidden = !PV.id;
+  $("#pv-kpis").hidden = !PV.id;
+  $("#pv-pessoas").hidden = !PV.id;
+  $$("#pv-pessoas [data-pv-quem]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.pvQuem === pvEstado.quem)));
+  $$("#tela-plano [data-pv-visao]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.pvVisao === pvEstado.visao)));
+  $("#pv-visao-dia").hidden = pvEstado.visao !== "dia";
+  $("#pv-visao-proc").hidden = pvEstado.visao !== "proc";
+  $("#pv-visao-meta").hidden = pvEstado.visao !== "meta";
+  $("#pv-dias").hidden = pvEstado.visao !== "dia";
+  if (pvEstado.visao === "proc") $("#pv-titulo-dia").textContent = "Processos da Vivíssima";
+  if (pvEstado.visao === "meta") $("#pv-titulo-dia").textContent = "Metas por semana";
+  pvKpis(); pvDias(); pvNotaSync();
+  if (pvEstado.visao === "dia") { pvLista(); pvFrentes(); }
+  if (pvEstado.visao === "proc") pvProcessos();
+  if (pvEstado.visao === "meta") pvMetas();
+}
+
+function pvKpis() {
+  const ps = PV.procs.filter(pvDoFiltro);
+  const pm = ps.filter(p => p.meta === "Meta de recebimento"), pp = ps.filter(p => p.meta !== "Meta de recebimento");
+  const tot = pm.reduce((a, p) => a + p.valor, 0);
+  const exp = pm.filter(p => pvSit(p.npu) === "Expedido").reduce((a, p) => a + p.valor, 0);
+  const pgeT = pp.reduce((a, p) => a + p.valor, 0);
+  const pgeD = pp.filter(p => ["Depositado ou bloqueado", "Expedido"].includes(pvSit(p.npu))).reduce((a, p) => a + p.valor, 0);
+  const ts = PV.tasks.filter(pvMinha), td = ts.filter(t => pvFeito(t.id)).length;
+  const restam = PV.days.filter(d => d >= pvHoje()).length;
+  const k = [
+    [pvBRL(tot), `meta de recebimento · ${pm.length} processos`, null],
+    [pvBRL(exp), "da meta com alvará expedido", tot ? exp / tot : 0],
+    [pvBRL(pgeD), `depositado de ${pvBRL(pgeT)} em adiantamento PGE (fora da meta)`, pgeT ? pgeD / pgeT : 0],
+    [`${td} de ${ts.length}`, `micrometas cumpridas · ${restam} dias úteis restantes`, ts.length ? td / ts.length : 0],
+  ];
+  $("#pv-kpis").innerHTML = k.map(([n, l, f]) => `<div class="pv-kpi"><div class="n">${esc(n)}</div><div class="l">${esc(l)}</div>${
+    f === null ? "" : `<div class="pv-bar"><i style="width:${(f * 100).toFixed(1)}%;background:var(--pv-gold)"></i></div>`}</div>`).join("");
+}
+
+function pvDias() {
+  const max = Math.max(...PV.days.map(d => PV.tasks.filter(t => t.day === d && pvMinha(t)).length), 1);
+  const hoje = pvHoje();
+  $("#pv-dias").innerHTML = PV.days.map(d => {
+    const ts = PV.tasks.filter(t => t.day === d && pvMinha(t)), n = ts.length, ok = ts.filter(t => pvFeito(t.id)).length;
+    const dt = new Date(d + "T12:00:00");
+    const segs = ["Bruna", "Pedro", "Ana"].map(p => {
+      const c = ts.filter(t => t.who === p).length;
+      return c ? `<i style="height:${c / max * 100}%;background:${PV_COR[p]}"></i>` : "";
+    }).join("");
+    return `<button class="pv-day${d === hoje ? " hoje" : ""}" data-pv-dia="${d}" aria-pressed="${d === pvEstado.dia}">`
+      + `<div class="w">${PV_DIA_SEM[dt.getDay()]}</div><div class="d">${pvDD(d)}</div>`
+      + `<div class="pv-stack">${segs}</div><div class="c">${ok}/${n} feitas</div></button>`;
+  }).join("");
+}
+
+function pvSelectSituacao(npu) {
+  const atual = pvEstado.situacoes.get(npu);
+  const titulo = atual && atual.por ? `Situação marcada por ${nomeDeMembro(atual.por)} em ${quandoLocal(atual.em)}` : "Situação do processo";
+  return `<select data-pv-situacao="${esc(npu)}" aria-label="Situação do processo" title="${esc(titulo)}"${DG.escreve() ? "" : " disabled"}>`
+    + PV_SITUACOES.map(s => `<option${s === pvSit(npu) ? " selected" : ""}>${s}</option>`).join("") + "</select>";
+}
+
+// o número do plano vira link para o processo no DiliGLA, quando ele está na base
+function pvNpu(npu) {
+  const dig = soDigitos(npu);
+  return BD.processos[dig]
+    ? `<button class="pv-npu" data-pv-abre="${esc(dig)}" title="Abrir o processo no DiliGLA">${esc(npu)}</button>`
+    : `<span class="pv-npu">${esc(npu)}</span>`;
+}
+
+function pvLista() {
+  const dt = new Date(pvEstado.dia + "T12:00:00");
+  $("#pv-titulo-dia").textContent = `Micrometas de ${PV_DIA_SEM[dt.getDay()]}, ${pvDD(pvEstado.dia)}`;
+  const ts = PV.tasks.filter(t => t.day === pvEstado.dia && pvMinha(t));
+  if (!ts.length) {
+    $("#pv-lista").innerHTML = '<p class="pv-vazio">Sem micrometas neste dia para este filtro. Use o dia para os retornos do Balcão Virtual, do setor de comunicação, do eLaw e da PGE e para o registro no DiliGLA.</p>';
+    return;
+  }
+  const pode = DG.escreve();
+  $("#pv-lista").innerHTML = ["Bruna", "Pedro", "Ana"].filter(p => ts.some(t => t.who === p)).map(p => {
+    const daPessoa = ts.filter(t => t.who === p), ok = daPessoa.filter(t => pvFeito(t.id)).length;
+    const v = daPessoa.reduce((a, t) => a + t.valor, 0);
+    return `<div class="pv-person"><span class="pv-dot" style="background:${PV_COR[p]}"></span><h3>${esc(PV_NOME[p])}</h3>`
+      + `<span class="p">${ok} de ${daPessoa.length} · ${pvBRL(v)} em jogo</span></div>`
+      + daPessoa.map(t => {
+        const pr = pvProc[t.npu], m = pvEstado.marcas.get(t.id), feito = pvFeito(t.id);
+        return `<div class="pv-task${feito ? " feita" : ""}">`
+          + `<input type="checkbox" data-pv-tarefa="${t.id}"${feito ? " checked" : ""}${pode ? "" : " disabled"} aria-label="Concluir micrometa ${esc(t.npu)}">`
+          + `<div><div class="pv-meta"><span class="pv-tag">${esc(t.etapa)}</span><span>${esc(t.frente)}</span>`
+          + (t.npu !== "—" ? `${pvNpu(t.npu)}<button class="pv-copia" data-pv-copia="${esc(t.npu)}">Copiar nº</button><span>${esc(t.grupo)}</span>` : "")
+          + `</div><p class="pv-acao">${esc(t.acao)}</p>`
+          + (pr && pr.nota ? `<p class="pv-nota">${esc(pr.nota)}</p>` : "")
+          + (pr && pr.cessao && !pr.valor ? '<p class="pv-nota">Cessão de crédito, sem honorário a receber: prioridade baixa.</p>' : "")
+          + (feito && m && m.por ? `<p class="pv-quem">Cumprida por ${esc(nomeDeMembro(m.por))} em ${esc(quandoLocal(m.em))}</p>` : "")
+          + `</div><div class="pv-val">${t.valor ? pvBRL(t.valor) : ""}${pr ? `<div style="margin-top:6px">${pvSelectSituacao(t.npu)}</div>` : ""}</div></div>`;
+      }).join("");
+  }).join("");
+}
+
+function pvFrentes() {
+  const ps = PV.procs.filter(pvDoFiltro), fs = [...new Set(ps.map(p => p.frente))];
+  $("#pv-frentes").innerHTML = fs.map(f => {
+    const g = ps.filter(p => p.frente === f), total = g.reduce((a, p) => a + p.valor, 0), v = total || 1;
+    const e = g.filter(p => pvSit(p.npu) === "Expedido").reduce((a, p) => a + p.valor, 0);
+    const r = g.filter(p => ["Depositado ou bloqueado", "Determinado"].includes(pvSit(p.npu))).reduce((a, p) => a + p.valor, 0);
+    return `<div class="pv-frow"><div class="t"><span>${esc(f)} (${g.length})</span><span>${pvBRL(total)}</span></div>`
+      + `<div class="pv-bar"><i style="width:${r / v * 100}%;background:var(--pv-ok)"></i><i style="width:${e / v * 100}%;background:var(--pv-gold)"></i></div></div>`;
+  }).join("");
+}
+
+function pvProcessos() {
+  const selF = $("#pv-f-frente"), selS = $("#pv-f-situacao");
+  if (!selF.options.length) {
+    selF.innerHTML = ["Todas as frentes", ...new Set(PV.procs.map(p => p.frente))].map(o => `<option>${esc(o)}</option>`).join("");
+    selS.innerHTML = ["Todas as situações", ...PV_SITUACOES].map(o => `<option>${esc(o)}</option>`).join("");
+  }
+  const f = selF.value, s = selS.value;
+  const ps = PV.procs.filter(p => pvDoFiltro(p) && (f.startsWith("Todas") || p.frente === f) && (s.startsWith("Todas") || pvSit(p.npu) === s))
+    .sort((a, b) => b.valor - a.valor);
+  $("#pv-conta-proc").textContent = `${ps.length} processos · ${pvBRL(ps.reduce((a, p) => a + p.valor, 0))}`;
+  $("#pv-tabela-proc tbody").innerHTML = ps.map(p => `<tr>`
+    + `<td data-l="Processo">${pvNpu(p.npu)}${p.nota ? `<div class="pv-legenda">${esc(p.nota)}</div>` : ""}</td>`
+    + `<td data-l="Grupo">${esc(p.grupo)}</td><td data-l="Frente">${esc(p.frente)}</td>`
+    + `<td data-l="Responsável">${esc(PV_NOME[p.who])}</td><td class="r" data-l="Valor">${pvBRL(p.valor)}</td>`
+    + `<td data-l="Situação">${pvSelectSituacao(p.npu)}</td></tr>`).join("")
+    || '<tr><td colspan="6" class="pv-vazio">Nenhum processo neste filtro.</td></tr>';
+}
+
+function pvMetas() {
+  $("#pv-metas").innerHTML = PV.goals.map(g => `<div class="pv-goal"><h3>${esc(g.w)}</h3><div class="pv-legenda">${esc(g.d)}</div>`
+    + g.items.filter(i => pvEstado.quem === "Todos" || i[0] === pvEstado.quem).map(i =>
+      `<div class="pv-person" style="margin:12px 0 0"><span class="pv-dot" style="background:${PV_COR[i[0]]}"></span><b>${esc(PV_NOME[i[0]])}</b></div>`
+      + `<ul>${i[1].map(x => `<li>${esc(x)}</li>`).join("")}</ul>`).join("") + "</div>").join("");
+}
+
+// ---------------------------------------------------------------- gravação
+// Pela mesma fila das outras escritas: aparece na hora, sobe em seguida e, se a
+// internet cair, espera e sobe depois.
+function pvMarcar(tarefa, feito) {
+  const linha = { plano: PV.id, tarefa, feito, por: DG.meuId(), em: new Date().toISOString() };
+  pvEstado.marcas.set(tarefa, linha);
+  DG.enfileirar({ metodo: "POST", caminho: "/rest/v1/plano_marcas?on_conflict=plano,tarefa", corpo: [linha], upsert: true });
+  desenharPlano();
+}
+function pvSituacao(npu, situacao) {
+  const linha = { plano: PV.id, npu, situacao, por: DG.meuId(), em: new Date().toISOString() };
+  pvEstado.situacoes.set(npu, linha);
+  DG.enfileirar({ metodo: "POST", caminho: "/rest/v1/plano_situacoes?on_conflict=plano,npu", corpo: [linha], upsert: true });
+  desenharPlano();
+}
+
+// --------------------------------------------------------------- eventos
+$("#pv-pessoas").innerHTML = ["Todos", "Bruna", "Pedro", "Ana"].map(p =>
+  `<button class="pv-chip" data-pv-quem="${p}" aria-pressed="${p === pvEstado.quem}">${
+    p === "Todos" ? "" : `<span class="pv-dot" style="background:${PV_COR[p]}"></span>`}${esc(p === "Todos" ? "Toda a equipe" : PV_NOME[p])}</button>`).join("");
+$("#tela-plano").addEventListener("click", e => {
+  const quem = e.target.closest("[data-pv-quem]");
+  if (quem) { pvEstado.quem = quem.dataset.pvQuem; desenharPlano(); return; }
+  const visao = e.target.closest("[data-pv-visao]");
+  if (visao) { pvEstado.visao = visao.dataset.pvVisao; desenharPlano(); return; }
+  const dia = e.target.closest("[data-pv-dia]");
+  if (dia) { pvEstado.dia = dia.dataset.pvDia; desenharPlano(); return; }
+  const abre = e.target.closest("[data-pv-abre]");
+  if (abre) { mostrarTela("carteiras"); abrirGaveta(abre.dataset.pvAbre); return; }
+  const copia = e.target.closest("[data-pv-copia]");
+  if (copia) {
+    try {
+      navigator.clipboard.writeText(copia.dataset.pvCopia).then(() => {
+        copia.textContent = "Copiado"; setTimeout(() => { copia.textContent = "Copiar nº"; }, 1500);
+      }, () => {});
+    } catch { /* sem área de transferência */ }
+  }
+});
+$("#tela-plano").addEventListener("change", e => {
+  const c = e.target;
+  if (c.id === "pv-arquivo") { const a = c.files && c.files[0]; c.value = ""; if (a) carregarArquivoDoPlano(a); return; }
+  if (c.dataset.pvTarefa) pvMarcar(c.dataset.pvTarefa, c.checked);
+  else if (c.dataset.pvSituacao) pvSituacao(c.dataset.pvSituacao, c.value);
+  else if (c.id === "pv-f-frente" || c.id === "pv-f-situacao") pvProcessos();
+});
+// o andamento dos outros chega sozinho: a cada meio minuto com a aba à vista,
+// e na hora em que a pessoa volta para a aba
+setInterval(() => { if (DG.logado && telaAtiva === "plano" && !document.hidden) carregarPlano(true); }, 30000);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && DG.logado && telaAtiva === "plano") carregarPlano(true);
+});
 
 // ================================================ várias pessoas ao mesmo tempo
 // Trabalhar junto já funcionava: cada alteração sobe como um PATCH só dos campos

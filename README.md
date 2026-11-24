@@ -25,6 +25,24 @@ sql/              as migrações, na ordem
 
 Não há build nem dependência de npm: o que o navegador baixa é o que roda.
 
+## Plano Vivíssima (aba principal)
+
+É a primeira tela do sistema: o plano diário da carteira Vivíssima até 18/12,
+com a régua de dias úteis, as micrometas de cada pessoa, o valor por frente, os
+processos e as metas por semana.
+
+- O plano em si (dias, processos, micrometas, metas por semana e os textos do
+  topo) fica na tabela `planos` (`sql/009_planos.sql`), atrás do login. Ele tem
+  número de processo e valor de honorário, e **não pode** ir para o repositório,
+  que é público: um arquivo estático a Vercel entrega a qualquer um. Quem tem
+  acesso de administração carrega o HTML do plano pela própria aba, uma vez; o
+  sistema lê os dados embutidos nele sem executar nada.
+- O andamento fica no banco, nas tabelas `plano_marcas` (micrometa cumprida) e
+  `plano_situacoes` (situação de cada processo), criadas por
+  `sql/008_plano.sql`. Todos enxergam o andamento de todos; quem escreve na base
+  marca, e cada marcação guarda quem marcou e quando. A tela relê o andamento a
+  cada meio minuto, para a marcação de um aparecer na tela do outro.
+
 ## Pauta
 
 A tela **Pauta** (ícone de calendário no trilho) responde se o processo entrou em

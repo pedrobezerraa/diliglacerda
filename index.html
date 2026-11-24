@@ -479,6 +479,9 @@
   .pv-firm { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 13px;
              color: var(--muted); margin-bottom: 12px; }
   .pv-firm b { color: var(--ink); font-family: Archivo, var(--sans); font-weight: 800; font-size: 14px; letter-spacing: .02em; }
+  .pv-trocar { margin-top: 12px; background: none; border: 0; padding: 0; font: 600 .82rem var(--sans);
+               color: var(--pv-gold2); border-bottom: 1px solid rgba(140,94,39,.35); border-radius: 0; cursor: pointer; }
+  .pv-trocar:hover { color: var(--gold); }
   .pv-carregar { margin-top: 18px; padding: 14px 16px; border: 1px dashed var(--line-3); border-radius: 12px; background: var(--surface); }
   .pv-carregar p { margin: 0 0 10px; font-size: .9rem; color: var(--ink-2); }
   .pv-arquivo { position: relative; }
@@ -934,6 +937,7 @@
       <div class="pv-firm"><b>GUIMARÃES &amp; LACERDA ADVOGADOS</b><span id="pv-base"></span></div>
       <h1 id="pv-titulo">Plano de trabalho</h1>
       <p class="pv-lede" id="pv-lede"></p>
+      <button class="pv-trocar" id="pv-trocar" hidden>Carregar nova versão do plano</button>
       <div class="pv-carregar" id="pv-carregar" hidden>
         <p id="pv-carregar-txt"></p>
         <label class="pv-chip pv-arquivo"><input type="file" id="pv-arquivo" accept=".html,.htm">Escolher o HTML do plano…</label>
@@ -957,6 +961,7 @@
         <aside class="pv-side">
           <div class="pv-box"><h3>Valor por frente e situação</h3><div id="pv-frentes"></div>
             <p class="pv-legenda">Barra: verde = depósito, bloqueio ou determinação obtidos; dourado = alvará expedido. Valores: honorários do Panorama (contratuais e sucumbência). Alvarás já expedidos estão fora do plano.</p></div>
+          <div id="pv-caixas">
           <div class="pv-box"><h3>Roteiro de análise de cada processo</h3><ol>
             <li><b>O objetivo foi atingido?</b> Conferir no PJe. Se sim, registrar no DiliGLA e marcar a situação aqui.</li>
             <li><b>Não foi:</b> diligenciar a obtenção junto à secretaria, pelo Balcão Virtual.</li>
@@ -972,6 +977,7 @@
             <li>Processos com cessão e sem honorário (R$ 0,00) ficam no fim de cada lista.</li>
             <li>Carga equilibrada: até 8 micrometas por dia para a Bruna, 5 para o Pedro e 4 para a Ana (exceto 25/11, dia da diligência na PGE).</li><li>08/12 é feriado municipal no Recife: sem micrometas.</li>
             <li>O Panorama prevalece sobre o relatório do DiliGLA.</li></ol></div>
+          </div>
         </aside>
       </div>
 
@@ -4638,6 +4644,50 @@ async function carregarPlano(silencioso) {
 
 // Lê o HTML do plano como dado, sem executar nada dele: o JSON embutido
 // (<script id="plan">), as metas por semana (const GOALS) e os textos do topo.
+function hashTexto(s) {
+  let a = 5381, b = 52711;
+  for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); a = (a * 33) ^ c; b = (b * 31) ^ c; }
+  return ((a >>> 0).toString(36) + (b >>> 0).toString(36)).slice(0, 10);
+}
+
+// Leva o andamento da versão anterior para a nova: a situação vai pelo número
+// do processo; a micrometa cumprida vai para a micrometa de mesmo conteúdo
+// (mesma pessoa, processo, etapa e ação), no mesmo dia ou, se ela mudou de
+// dia, no dia novo. O que não tem correspondente fica guardado na versão antiga.
+async function levarAndamento(anterior, novo) {
+  const [marcas, situacoes] = await Promise.all([
+    DG.ler(`/plano_marcas?plano=eq.${encodeURIComponent(anterior.id)}&select=*`),
+    DG.ler(`/plano_situacoes?plano=eq.${encodeURIComponent(anterior.id)}&select=*`),
+  ]);
+  const npus = new Set(novo.dados.procs.map(p => p.npu));
+  const sits = (situacoes || []).filter(s => npus.has(s.npu)).map(s => ({ ...s, plano: novo.id }));
+  const comDia = t => [t.day, t.who, t.npu, t.etapa, t.acao].join("|");
+  const semDia = t => [t.who, t.npu, t.etapa, t.acao].join("|");
+  const velhas = new Map(anterior.tasks.map(t => [t.id, t]));
+  const porComDia = new Map(), porSemDia = new Map();
+  for (const t of novo.dados.tasks) {
+    porComDia.set(comDia(t), t.id);
+    if (!porSemDia.has(semDia(t))) porSemDia.set(semDia(t), []);
+    porSemDia.get(semDia(t)).push(t.id);
+  }
+  const usadas = new Set(), marcasNovas = [];
+  let sobraram = 0;
+  for (const m of marcas || []) {
+    const t = velhas.get(m.tarefa);
+    let id = t && porComDia.get(comDia(t));
+    if (!id || usadas.has(id)) id = t && (porSemDia.get(semDia(t)) || []).find(x => !usadas.has(x));
+    if (!id) { sobraram++; continue; }
+    usadas.add(id);
+    marcasNovas.push({ ...m, plano: novo.id, tarefa: id });
+  }
+  const upsert = (tabela, conflito, linhas) => linhas.length
+    ? DG.req("POST", `/rest/v1/${tabela}?on_conflict=${conflito}`, linhas, true, "resolution=merge-duplicates")
+    : null;
+  for (let i = 0; i < marcasNovas.length; i += 300) await upsert("plano_marcas", "plano,tarefa", marcasNovas.slice(i, i + 300));
+  for (let i = 0; i < sits.length; i += 300) await upsert("plano_situacoes", "plano,npu", sits.slice(i, i + 300));
+  return { marcas: marcasNovas.length, situacoes: sits.length, sobraram };
+}
+
 function lerHtmlDoPlano(texto) {
   const m = /<script id="plan" type="application\/json">([\s\S]*?)<\/script>/.exec(texto);
   if (!m) throw new Error("não achei os dados do plano neste arquivo (o bloco <script id=\"plan\">).");
@@ -4649,8 +4699,19 @@ function lerHtmlDoPlano(texto) {
   const goals = g ? JSON.parse(g[1]) : [];
   const doc = new DOMParser().parseFromString(texto, "text/html");
   const txt = s => ((doc.querySelector(s) || {}).textContent || "").replace(/\s+/g, " ").trim();
-  const cabecalho = { titulo: txt("h1") || "Plano de trabalho", base: txt(".firm span"), lede: txt(".lede") };
-  const id = `plano-${dados.days[0]}-a-${dados.days[dados.days.length - 1]}`;
+  // os quadros do lado (roteiro, rotina, regras): título e itens, com o negrito,
+  // guardados como texto; nada do HTML do arquivo entra na página como HTML
+  const caixas = [...doc.querySelectorAll(".side .box")].filter(b => !b.querySelector("#frentes")).map(b => ({
+    titulo: ((b.querySelector("h3") || {}).textContent || "").trim(),
+    itens: [...b.querySelectorAll("li")].map(li => [...li.childNodes].map(n => ({
+      t: n.textContent, b: n.nodeType === 1 && /^(B|STRONG)$/.test(n.tagName),
+    })).filter(s => s.t)),
+  })).filter(c => c.titulo && c.itens.length);
+  const cabecalho = { titulo: txt("h1") || "Plano de trabalho", base: txt(".firm span"), lede: txt(".lede"), caixas };
+  // cada versão do plano tem o próprio id: uma versão nova redistribui as
+  // micrometas, e o "t001" de uma não é o "t001" da outra
+  const versao = hashTexto(JSON.stringify([dados.days, dados.procs, dados.tasks]));
+  const id = `plano-${dados.days[0]}-a-${dados.days[dados.days.length - 1]}-${versao}`;
   return { id, titulo: cabecalho.titulo, dados: { cabecalho, days: dados.days, procs: dados.procs, tasks: dados.tasks, goals } };
 }
 
@@ -4663,13 +4724,19 @@ async function carregarArquivoDoPlano(arquivo) {
                + `${d.tasks.length} micrometas e ${d.goals.length} blocos de metas por semana.\n\n`
                + "Ele passa a ser o plano da aba principal para toda a equipe.")) return;
     el.textContent = "Gravando o plano no banco…";
+    const anterior = PV.id && PV.id !== plano.id ? { id: PV.id, tasks: PV.tasks } : null;
     // os planos anteriores saem de cena, mas o andamento deles continua guardado
     await DG.req("PATCH", "/rest/v1/planos?ativo=eq.true", { ativo: false }, true);
     await DG.req("POST", "/rest/v1/planos?on_conflict=id",
                  [{ ...plano, ativo: true, criado_por: DG.meuId() }], true, "resolution=merge-duplicates");
+    const levado = anterior ? await levarAndamento(anterior, plano) : null;
     pvEstado.planoLido = false;
+    pvEstado.trocar = false;
     await carregarPlano();
-    avisar(`Plano carregado: ${d.procs.length} processos e ${d.tasks.length} micrometas, visíveis para toda a equipe.`);
+    avisar(`Plano carregado: ${d.procs.length} processos e ${d.tasks.length} micrometas, visíveis para toda a equipe.`
+      + (levado ? ` Andamento levado da versão anterior: ${levado.situacoes} situação(ões) e ${levado.marcas} micrometa(s) cumprida(s)`
+                  + (levado.sobraram ? `; ${levado.sobraram} marcação(ões) de micrometas que saíram do plano ficaram guardadas na versão anterior.` : ".")
+              : ""));
   } catch (e) {
     el.textContent = `Não deu para carregar o plano: ${e.message}`;
   }
@@ -4699,6 +4766,12 @@ function desenharPlano() {
                     : "Ainda não há plano carregado. Quem tem acesso de administração carrega o plano por esta tela.")
     : "Escolha o HTML do novo plano. O andamento do plano atual continua guardado.";
   $("#pv-arquivo").closest("label").hidden = !DG.gestora();
+  $("#pv-trocar").hidden = !(DG.gestora() && PV.id && !pvEstado.trocar);
+  const caixas = cab.caixas || [];
+  if (caixas.length) {
+    $("#pv-caixas").innerHTML = caixas.map(c => `<div class="pv-box"><h3>${esc(c.titulo)}</h3><ol>${
+      c.itens.map(li => `<li>${li.map(s => s.b ? `<b>${esc(s.t)}</b>` : esc(s.t)).join("")}</li>`).join("")}</ol></div>`).join("");
+  }
   $(".pv-corpo").hidden = !PV.id;
   $("#pv-kpis").hidden = !PV.id;
   $("#pv-pessoas").hidden = !PV.id;
@@ -4852,6 +4925,7 @@ $("#pv-pessoas").innerHTML = ["Todos", "Bruna", "Pedro", "Ana"].map(p =>
   `<button class="pv-chip" data-pv-quem="${p}" aria-pressed="${p === pvEstado.quem}">${
     p === "Todos" ? "" : `<span class="pv-dot" style="background:${PV_COR[p]}"></span>`}${esc(p === "Todos" ? "Toda a equipe" : PV_NOME[p])}</button>`).join("");
 $("#tela-plano").addEventListener("click", e => {
+  if (e.target.closest("#pv-trocar")) { pvEstado.trocar = true; desenharPlano(); return; }
   const quem = e.target.closest("[data-pv-quem]");
   if (quem) { pvEstado.quem = quem.dataset.pvQuem; desenharPlano(); return; }
   const visao = e.target.closest("[data-pv-visao]");

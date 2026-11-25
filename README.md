@@ -51,6 +51,11 @@ processos e as metas por semana.
   `sql/008_plano.sql`. Todos enxergam o andamento de todos; quem escreve na base
   marca, e cada marcação guarda quem marcou e quando. A tela relê o andamento a
   cada meio minuto, para a marcação de um aparecer na tela do outro.
+- Cada card de processo tem "adicionar observação". Se o processo está na base,
+  é a mesma observação da aba Carteiras; se não está, fica guardada no plano.
+  Grava pela função `dg_observacao_plano` (`sql/012_observacao_plano.sql`), que
+  deixa qualquer pessoa com acesso de escrita anotar (quem diligencia no plano
+  nem sempre é o responsável na carteira) e registra a alteração no histórico.
 
 ## Pauta
 

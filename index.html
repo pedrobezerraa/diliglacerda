@@ -534,6 +534,17 @@
   .pv-acao { margin: 4px 0 0; font-size: 15px; }
   .pv-nota { font-size: 13px; color: var(--pv-gold2); margin: 4px 0 0; }
   .pv-quem { font-size: 12px; color: var(--muted); margin: 4px 0 0; }
+  .pv-obs { margin: 6px 0 0; font-size: 13px; color: var(--ink-2); display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .pv-obs .rot { font-weight: 600; color: var(--muted); }
+  .pv-obs-btn { background: none; border: 0; padding: 0; font: 600 12px var(--sans); color: var(--pv-gold2);
+                border-bottom: 1px solid rgba(140,94,39,.3); border-radius: 0; cursor: pointer; }
+  .pv-obs-btn:hover { color: var(--gold); }
+  .pv-obs-form { margin: 8px 0 0; display: grid; gap: 6px; }
+  .pv-obs-form input { width: 100%; font: 14px var(--sans); padding: 7px 10px; border: 1px solid var(--line-2);
+                       border-radius: 8px; background: var(--surface); color: var(--ink); }
+  .pv-obs-form input:focus { outline: 0; border-color: var(--gold-2); box-shadow: var(--ring); }
+  .pv-obs-form .linha-acoes { gap: 6px; }
+  .pv-obs-form button { min-height: 30px; padding: 0 12px; font-size: 13px; }
   .pv-val { font-weight: 600; white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
   #tela-plano select { min-height: 38px; font: 14px var(--sans); border-radius: 8px; border: 1px solid var(--line-2);
                        background: var(--surface); color: var(--ink); padding: 0 8px; }
@@ -4648,7 +4659,7 @@ async function carregarPlano(silencioso) {
     if (PV.id) {
       const [marcas, situacoes] = await Promise.all([
         DG.ler(`/plano_marcas?plano=eq.${encodeURIComponent(PV.id)}&select=tarefa,feito,por,em`),
-        DG.ler(`/plano_situacoes?plano=eq.${encodeURIComponent(PV.id)}&select=npu,situacao,por,em`),
+        DG.ler(`/plano_situacoes?plano=eq.${encodeURIComponent(PV.id)}&select=npu,situacao,por,em,observacao,obs_por,obs_em`),
       ]);
       // o que a pessoa acabou de marcar e ainda está na fila não pode ser desfeito
       // por uma leitura que saiu antes da gravação
@@ -4664,7 +4675,8 @@ async function carregarPlano(silencioso) {
   }
   // um select aberto não pode sumir debaixo do mouse
   const foco = document.activeElement;
-  if (silencioso && foco && foco.tagName === "SELECT" && foco.closest("#tela-plano")) return;
+  if (silencioso && foco && foco.closest("#tela-plano")
+      && (foco.tagName === "SELECT" || (foco.tagName === "INPUT" && foco.type === "text"))) return;
   if (telaAtiva === "plano") desenharPlano();
 }
 
@@ -4889,6 +4901,7 @@ function pvLista() {
           + (pr && pr.nota ? `<p class="pv-nota">${esc(pr.nota)}</p>` : "")
           + (pr && pr.cessao && !pr.valor ? '<p class="pv-nota">Cessão de crédito, sem honorário a receber: prioridade baixa.</p>' : "")
           + (feito && m && m.por ? `<p class="pv-quem">Cumprida por ${esc(nomeDeMembro(m.por))} em ${esc(quandoLocal(m.em))}</p>` : "")
+          + (pr ? pvObservacao(t.npu, pr) : "")
           + `</div><div class="pv-val">${t.valor ? pvBRL(t.valor) : ""}${pr ? `<div style="margin-top:6px">${pvSelectSituacao(t.npu)}</div>` : ""}</div></div>`;
       }).join("");
   }).join("");
@@ -4939,9 +4952,66 @@ function pvMarcar(tarefa, feito) {
   DG.enfileirar({ metodo: "POST", caminho: "/rest/v1/plano_marcas?on_conflict=plano,tarefa", corpo: [linha], upsert: true });
   desenharPlano();
 }
+// ------------------------------------------------------------ observação
+// A observação do card é a mesma da carteira quando o processo está na base;
+// fora da base, fica guardada no plano. Grava pela função dg_observacao_plano
+// (sql/012), que deixa qualquer pessoa com acesso de escrita anotar, porque
+// quem diligencia no plano nem sempre é o responsável na carteira.
+function pvObsAtual(npu, pr) {
+  const p = BD.processos[soDigitos(npu)];
+  if (p) return { texto: p.observacao || "", naBase: true };
+  const s = pvEstado.situacoes.get(npu);
+  if (s && s.observacao !== undefined && s.obs_em) return { texto: s.observacao || "", naBase: false, por: s.obs_por, em: s.obs_em };
+  return { texto: (pr && pr.obs) || "", naBase: false };
+}
+function pvObservacao(npu, pr) {
+  const o = pvObsAtual(npu, pr), pode = DG.escreve();
+  const titulo = o.naBase ? "A mesma observação da aba Carteiras" : "Processo fora da base: a observação fica guardada no plano";
+  return `<div class="pv-obs" data-pv-obs-de="${esc(npu)}" title="${esc(titulo)}">`
+    + (o.texto ? `<span class="rot">Obs.:</span><span>${esc(o.texto)}</span>` : "")
+    + (pode ? `<button class="pv-obs-btn" data-pv-obs="${esc(npu)}">${o.texto ? "editar" : "+ adicionar observação"}</button>` : "")
+    + "</div>";
+}
+function pvAbrirObs(botao) {
+  const npu = botao.dataset.pvObs, caixa = botao.closest(".pv-obs");
+  const atual = pvObsAtual(npu, pvProc[npu]).texto;
+  const form = document.createElement("div");
+  form.className = "pv-obs-form";
+  form.innerHTML = `<input type="text" maxlength="500" aria-label="Observação do processo ${esc(npu)}"
+      placeholder="Ex.: secretaria pediu dados bancários; reiterar na sexta">
+    <div class="linha-acoes"><button class="primario">Salvar</button><button class="secundario">Cancelar</button></div>`;
+  caixa.replaceWith(form);
+  const campo = form.querySelector("input"), [salvar, cancelar] = form.querySelectorAll("button");
+  campo.value = atual;
+  campo.focus();
+  const fechar = () => desenharPlano();
+  salvar.addEventListener("click", () => pvSalvarObs(npu, campo.value));
+  cancelar.addEventListener("click", fechar);
+  campo.addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); pvSalvarObs(npu, campo.value); }
+    else if (e.key === "Escape") { e.preventDefault(); fechar(); }
+  });
+}
+function pvSalvarObs(npu, valor) {
+  const texto = String(valor || "").replace(/\s+/g, " ").trim();
+  const p = BD.processos[soDigitos(npu)];
+  DG.enfileirar({ rpc: "dg_observacao_plano", args: { p_plano: PV.id, p_npu: npu, p_texto: texto } });
+  if (p) {
+    p.observacao = texto;
+    // a função já grava no processo; o espelho passa a contar com isso
+    DGS.espelhar(BD);
+    gravar();
+  } else {
+    pvEstado.situacoes.set(npu, { ...(pvEstado.situacoes.get(npu) || { situacao: "Pendente" }),
+                                  observacao: texto, obs_por: DG.meuId(), obs_em: new Date().toISOString() });
+  }
+  desenharPlano();
+  avisar(texto ? `Observação salva em ${npu}${p ? " (a mesma da aba Carteiras)" : ""}.` : `Observação apagada em ${npu}.`);
+}
+
 function pvSituacao(npu, situacao) {
   const linha = { plano: PV.id, npu, situacao, por: DG.meuId(), em: new Date().toISOString() };
-  pvEstado.situacoes.set(npu, linha);
+  pvEstado.situacoes.set(npu, { ...(pvEstado.situacoes.get(npu) || {}), ...linha });
   DG.enfileirar({ metodo: "POST", caminho: "/rest/v1/plano_situacoes?on_conflict=plano,npu", corpo: [linha], upsert: true });
   desenharPlano();
 }
@@ -4960,6 +5030,8 @@ $("#tela-plano").addEventListener("click", e => {
   if (dia) { pvEstado.dia = dia.dataset.pvDia; desenharPlano(); return; }
   const abre = e.target.closest("[data-pv-abre]");
   if (abre) { mostrarTela("carteiras"); abrirGaveta(abre.dataset.pvAbre); return; }
+  const obs = e.target.closest("[data-pv-obs]");
+  if (obs) { pvAbrirObs(obs); return; }
   const copia = e.target.closest("[data-pv-copia]");
   if (copia) {
     try {

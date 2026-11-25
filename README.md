@@ -25,6 +25,15 @@ sql/              as migrações, na ordem
 
 Não há build nem dependência de npm: o que o navegador baixa é o que roda.
 
+## Corrigir o número de um processo
+
+Na gaveta do processo, o link "alterar número" (para o responsável ou a
+administração) troca o número de um processo já importado. A troca é feita por
+`dg_alterar_npu` (`sql/011_alterar_npu.sql`), que confere o dígito verificador e
+se o número já existe na base. Objetivo, observação, diligências, passagens e
+histórico continuam; os andamentos e a verificação de pauta buscados com o número
+antigo são descartados e voltam na próxima consulta ao PJe.
+
 ## Plano Vivíssima (aba principal)
 
 É a primeira tela do sistema: o plano diário da carteira Vivíssima até 18/12,

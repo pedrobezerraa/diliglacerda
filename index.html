@@ -589,6 +589,18 @@
   .proximo-obj select { width: 100%; }
   .proximo-obj .linha-acoes { margin-top: 16px; justify-content: flex-end; }
 
+
+  /* ---- alterar o número do processo (gaveta) ---- */
+  .g-alterar { background: none; border: 0; padding: 0; margin-left: 10px; font: 600 .74rem var(--sans);
+               color: var(--gold); border-bottom: 1px solid rgba(138,106,47,.35); border-radius: 0; cursor: pointer; }
+  .g-alterar:hover { color: var(--gold-2); border-bottom-color: var(--gold-2); }
+  .g-npu-form { margin-top: 10px; display: grid; gap: 8px; }
+  .g-npu-form .linha-acoes { gap: 8px; }
+  .g-npu-form input { font: 500 .95rem var(--mono); letter-spacing: -.01em; padding: 7px 10px; width: 100%;
+                      border: 1px solid var(--line-2); border-radius: var(--r-s); }
+  .g-npu-form input:focus { outline: 0; border-color: var(--gold-2); box-shadow: var(--ring); }
+  .g-npu-form .erro-npu { color: var(--red); font-size: .8rem; margin: 0; }
+
   /* ---- faixa de números ---- */
   /* uma linha, não sete caixas: o número continua à mão e para de disputar a
      tela com a grade, que é o que a pessoa veio ver */
@@ -1163,7 +1175,19 @@
   <header>
     <div class="g-topo">
       <div>
-        <div class="g-npu" id="g-npu"></div>
+        <div class="g-npu"><span id="g-npu"></span><button class="g-alterar" id="g-alterar-npu" hidden
+             title="Corrigir o número deste processo">alterar número</button></div>
+        <div class="g-npu-form" id="g-npu-form" hidden>
+          <input id="g-npu-novo" inputmode="numeric" autocomplete="off" aria-label="Número correto do processo"
+                 placeholder="0000000-00.0000.8.17.0000">
+          <div class="linha-acoes">
+            <button class="primario" id="g-npu-salvar">Salvar número</button>
+            <button class="secundario" id="g-npu-cancelar">Cancelar</button>
+          </div>
+          <p class="erro-npu" id="g-npu-erro" hidden></p>
+          <p class="nota" style="margin:0">Objetivo, observação, diligências e histórico continuam. Os andamentos
+            e a verificação de pauta buscados com o número antigo são descartados e voltam na próxima consulta.</p>
+        </div>
         <div class="g-sub" id="g-sub"></div>
       </div>
       <button class="secundario fechar" id="g-fechar">Fechar</button>
@@ -1812,6 +1836,8 @@ function abrirGaveta(npu) {
   const p = BD.processos[npu]; if (!p) return;
   gavetaNpu = npu;
   $("#g-npu").textContent = mascara(npu);
+  $("#g-npu-form").hidden = true;
+  $("#g-alterar-npu").hidden = !podeAlterarNpu(p);
   $("#g-sub").textContent = [p.grupo, p.jurisdicao,
                              p.categoria && p.categoria !== "propria" && ROTULO_CATEGORIA[p.categoria],
                              p.bloco || p.carteira,
@@ -5018,6 +5044,79 @@ $("#fundo-proximo").addEventListener("click", fecharProximoObjetivo);
 $("#proximo-obj").addEventListener("keydown", e => {
   if (e.key === "Escape") { e.stopPropagation(); fecharProximoObjetivo(); }
   else if (e.key === "Enter" && e.target.id === "po-select") definirProximoObjetivo();
+});
+
+// ============================================================ alterar o número
+// O número entra pela planilha e às vezes entra errado. A troca é feita no banco
+// (dg_alterar_npu, sql/011), que confere permissão, dígito verificador e
+// duplicidade; o trabalho feito no processo fica, porque se liga pelo id.
+const podeAlterarNpu = p => !!(p && p.id && DG.escreve() && (DG.gestora() || p.responsavel_id === DG.meuId()));
+
+function abrirFormNpu() {
+  $("#g-npu-form").hidden = false;
+  $("#g-alterar-npu").hidden = true;
+  $("#g-npu-erro").hidden = true;
+  const campo = $("#g-npu-novo");
+  campo.value = mascara(gavetaNpu);
+  campo.focus(); campo.select();
+}
+function fecharFormNpu() {
+  $("#g-npu-form").hidden = true;
+  $("#g-alterar-npu").hidden = !podeAlterarNpu(BD.processos[gavetaNpu]);
+}
+function erroNpu(t) { const e = $("#g-npu-erro"); e.textContent = t; e.hidden = false; $("#g-npu-novo").focus(); }
+
+async function salvarNumeroNovo() {
+  const antigo = gavetaNpu, p = BD.processos[antigo];
+  if (!podeAlterarNpu(p)) return;
+  const bruto = $("#g-npu-novo").value;
+  const dig = soDigitos(bruto);
+  if (dig.length !== 20) return erroNpu("O número precisa ter os 20 dígitos do padrão CNJ (NNNNNNN-DD.AAAA.J.TR.OOOO).");
+  if (!digitoConfere(dig)) return erroNpu("O dígito verificador não confere: confira o número.");
+  if (dig === antigo) return erroNpu("É o mesmo número de antes.");
+  if (BD.processos[dig]) return erroNpu(`Esse número já está na base, na carteira de ${BD.processos[dig].resp}.`);
+  if (!confirm(`Trocar o número do processo?\n\nDe: ${mascara(antigo)}\nPara: ${mascara(dig)}\n\n`
+             + "Objetivo, observação, diligências e histórico continuam. Os andamentos e a verificação "
+             + "de pauta buscados com o número antigo são descartados e voltam na próxima consulta ao PJe.")) return;
+  const b = $("#g-npu-salvar");
+  b.disabled = true; b.textContent = "Salvando…";
+  try {
+    await DG.rpc("dg_alterar_npu", { p_processo: p.id, p_npu: dig });
+  } catch (e) {
+    erroNpu(e.message);
+    return;
+  } finally {
+    b.disabled = false; b.textContent = "Salvar número";
+  }
+  // a tela passa a usar o número novo como chave, como o banco
+  delete BD.processos[antigo];
+  Object.assign(p, { npu: dig, juizo: "", orgao: "", orgao_2g: "", colegiado: "", relator: "",
+                     erro: "", consultado_em: "" });
+  BD.processos[dig] = p;
+  BD.ordem = BD.ordem.map(n => n === antigo ? dig : n);
+  delete BD.mov[antigo];
+  BD.mov[dig] = {};
+  if (typeof PAUTAS !== "undefined") PAUTAS.delete(p.id);
+  DGS.espelhar(BD);
+  gravar();
+  fecharFormNpu();
+  abrirGaveta(dig);
+  desenhar();
+  avisar(`Número corrigido: ${mascara(antigo)} → ${mascara(dig)}. Consulte o PJe de novo para trazer os andamentos.`);
+}
+$("#g-alterar-npu").addEventListener("click", abrirFormNpu);
+$("#g-npu-cancelar").addEventListener("click", fecharFormNpu);
+$("#g-npu-salvar").addEventListener("click", salvarNumeroNovo);
+$("#g-npu-novo").addEventListener("input", e => {
+  const d = e.target.value.replace(/\D/g, "").slice(0, 20);
+  const p = [d.slice(0, 7), d.slice(7, 9), d.slice(9, 13), d.slice(13, 14), d.slice(14, 16), d.slice(16)];
+  e.target.value = p[0] + (p[1] ? "-" + p[1] : "") + (p[2] ? "." + p[2] : "") + (p[3] ? "." + p[3] : "")
+                 + (p[4] ? "." + p[4] : "") + (p[5] ? "." + p[5] : "");
+  $("#g-npu-erro").hidden = true;
+});
+$("#g-npu-novo").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); salvarNumeroNovo(); }
+  else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); fecharFormNpu(); }
 });
 
 // ================================================ várias pessoas ao mesmo tempo

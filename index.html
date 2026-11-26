@@ -612,6 +612,21 @@
   .g-npu-form input:focus { outline: 0; border-color: var(--gold-2); box-shadow: var(--ring); }
   .g-npu-form .erro-npu { color: var(--red); font-size: .8rem; margin: 0; }
 
+
+  /* ---- objetivos já cumpridos: à vista, mas em segundo plano ---- */
+  .obj-cumpridos { list-style: none; margin: 8px 0 0; padding: 6px 0 0; border-top: 1px dashed var(--line);
+                   display: grid; gap: 3px; }
+  .obj-cumpridos li { display: flex; gap: 5px; align-items: baseline; font-size: .7rem; line-height: 1.35;
+                      color: var(--muted); }
+  .obj-cumpridos li::before { content: "✓"; color: var(--green); opacity: .6; font-weight: 700; flex: none; }
+  .obj-cumpridos li.mais::before { content: ""; }
+  .obj-cumpridos .txt { overflow-wrap: anywhere; }
+  .obj-cumpridos time { margin-left: auto; padding-left: 6px; font: 500 .66rem var(--mono); color: var(--faint); white-space: nowrap; }
+  .g-cumpridos { margin-top: 2px; }
+  .g-cumpridos > span { display: block; font-size: .74rem; font-weight: 600; color: var(--muted); }
+  .g-cumpridos .obj-cumpridos { border-top: 0; padding-top: 2px; margin-top: 2px; }
+  .g-cumpridos .obj-cumpridos li { font-size: .78rem; }
+
   /* ---- faixa de números ---- */
   /* uma linha, não sete caixas: o número continua à mão e para de disputar a
      tela com a grade, que é o que a pessoa veio ver */
@@ -1215,6 +1230,7 @@
     <label class="atingido" id="g-atingido-rotulo" style="margin-top:2px">
       <input type="checkbox" id="g-atingido"> objetivo atingido <time id="g-atingido-data"></time>
     </label>
+    <div class="g-cumpridos" id="g-cumpridos" hidden></div>
     <div><label for="g-condicao">Condição da diligência</label><select id="g-condicao">
       <option value="">— não definida —</option>
       <option value="atuar">Atuar — há ato a obter</option>
@@ -1692,6 +1708,7 @@ function desenhar() {
   }).join("");
 
   const npus = filtradas();
+  const cumpridosDe = cumpridosPorProcesso();
   const consulta = BD.consultas[abaAtiva] || {};
   const colunas = colunasDeData(npus);
   const hojeISO = carimbarAgora().slice(0, 10);
@@ -1751,6 +1768,7 @@ function desenhar() {
         + `${p.atingido ? `atingido <time>${esc(dd(paraData(p.atingido)))}</time>` : "objetivo atingido"}`
         + `</label>`
         + (p.atingido && p.id && DG.escreve() ? `<button class="elo-proximo" data-proximo="${esc(n)}" title="Escolher o próximo objetivo; o atingido segue contando">próximo objetivo</button>` : "")
+        + trilhaCumpridos(p.id && cumpridosDe.get(p.id), 3)
         + `</div></td>`
         + `<td class="fix c5"><div class="cel">${celulaEditavel(n, p, "observacao")}</div></td>`
         + `<td class="fix c6"><div class="cel">`
@@ -1781,6 +1799,15 @@ function desenhar() {
   const novosAgora = consulta.em
     ? todos.reduce((s, n) => s + movsDe(n).filter(m => m.captado === consulta.em).length, 0) : 0;
   const falhas = todos.filter(n => (BD.processos[n] || {}).erro).length;
+  // "objetivos concluídos" soma os já trocados pelo próximo aos marcados agora;
+  // "novos objetivos concluídos" são os objetivos novos (definidos depois de uma
+  // troca) que já foram concluídos
+  const idsDaAba = new Set(todos.map(n => (BD.processos[n] || {}).id).filter(Boolean));
+  const cumpridosDaAba = OBJ_CUMPRIDOS.filter(c => idsDaAba.has(c.processo_id));
+  const comHistorico = new Set(cumpridosDaAba.map(c => c.processo_id));
+  const atingidosAgora = todos.filter(n => (BD.processos[n] || {}).atingido);
+  const novosConcluidos = atingidosAgora.filter(n => comHistorico.has(BD.processos[n].id)).length;
+  const concluidosTotal = cumpridosDaAba.length + atingidosAgora.length;
   // Eram sete fichas em caixa, cada uma com o peso de um título, empurrando a
   // grade para baixo. São os mesmos sete números, agora numa linha só: quem
   // precisa deles acha, e quem veio trabalhar não esbarra neles.
@@ -1789,7 +1816,8 @@ function desenhar() {
     ["com movimentação", comMov, ""],
     ["andamentos", totalMov, ""],
     ["novos na consulta", novosAgora, novosAgora ? "destaque" : ""],
-    ["objetivos atingidos", todos.filter(n => (BD.processos[n] || {}).atingido).length, ""],
+    ["objetivos concluídos", concluidosTotal, ""],
+    ["novos objetivos concluídos", novosConcluidos, novosConcluidos ? "destaque" : ""],
     ["sem resposta do PJe", falhas, falhas ? "alerta" : ""],
   ].map(([r, v, c]) => `<span class="${c}"><b>${v}</b>${esc(r)}</span>`).join("")
     + `<span class="${feitasHoje >= metaDiaria() ? "" : "destaque"}">`
@@ -1864,6 +1892,10 @@ function abrirGaveta(npu) {
   $("#g-atingido").checked = !!p.atingido;
   $("#g-atingido-data").textContent = p.atingido ? dd(paraData(p.atingido)) : "";
   $("#g-atingido-rotulo").classList.toggle("feito", !!p.atingido);
+  const cumpridosAqui = p.id && cumpridosPorProcesso().get(p.id);
+  $("#g-cumpridos").hidden = !(cumpridosAqui && cumpridosAqui.length);
+  $("#g-cumpridos").innerHTML = cumpridosAqui && cumpridosAqui.length
+    ? `<span>Objetivos já cumpridos</span>${trilhaCumpridos(cumpridosAqui)}` : "";
   const paraEscolher = [...abas()];
   if (!paraEscolher.includes(SEM_RESP)) paraEscolher.push(SEM_RESP);
   if (p.resp && !paraEscolher.includes(p.resp)) paraEscolher.push(p.resp);
@@ -5054,6 +5086,31 @@ setInterval(() => { if (DG.logado && telaAtiva === "plano" && !document.hidden) 
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && DG.logado && telaAtiva === "plano") carregarPlano(true);
 });
+
+// ------------------------------------------------ objetivos já cumpridos, à vista
+// O objetivo trocado pelo próximo continua aparecendo, discreto, embaixo do atual:
+// na linha da carteira e na gaveta do processo.
+function cumpridosPorProcesso() {
+  const mapa = new Map();
+  for (const c of OBJ_CUMPRIDOS) {
+    if (!mapa.has(c.processo_id)) mapa.set(c.processo_id, []);
+    mapa.get(c.processo_id).push(c);
+  }
+  for (const l of mapa.values()) l.sort((a, b) => String(b.atingido_em).localeCompare(String(a.atingido_em)));
+  return mapa;
+}
+const dataCurtaLocal = iso => { const t = new Date(iso); return isNaN(t) ? "" : `${z2(t.getDate())}/${z2(t.getMonth() + 1)}`; };
+const dataLongaLocal = iso => { const t = new Date(iso); return isNaN(t) ? "" : dd(t); };
+function trilhaCumpridos(lista, limite) {
+  if (!lista || !lista.length) return "";
+  const mostra = limite ? lista.slice(0, limite) : lista, resto = lista.length - mostra.length;
+  return `<ul class="obj-cumpridos" aria-label="Objetivos já cumpridos">`
+    + mostra.map(c => `<li title="Objetivo cumprido em ${esc(dataLongaLocal(c.atingido_em))}${
+        c.registrado_por ? " · trocado por " + esc(nomeDeMembro(c.registrado_por)) : ""}">`
+      + `<span class="txt">${esc(c.objetivo)}</span><time>${esc(dataCurtaLocal(c.atingido_em))}</time></li>`).join("")
+    + (resto > 0 ? `<li class="mais">+${resto} anterior${resto > 1 ? "es" : ""}</li>` : "")
+    + "</ul>";
+}
 
 // ================================================================ próximo objetivo
 // Atingido o objetivo, a pessoa escolhe o próximo numa lista com todos os

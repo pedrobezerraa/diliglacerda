@@ -2910,6 +2910,20 @@ function itemDeProcessoPorId(id) {
            movs, ultimo: movs.length ? movs[movs.length - 1] : null, julgamentos: 0 };
 }
 
+// Novos objetivos: o objetivo atual de um processo que já teve um objetivo
+// cumprido e trocado pelo próximo. Cada um carrega o objetivo anterior.
+function novosObjetivos(itens) {
+  const porProcesso = cumpridosPorProcesso();
+  const novos = [];
+  for (const i of itens) {
+    const p = BD.processos[i.npu];
+    const anteriores = p && p.id && porProcesso.get(p.id);
+    if (!anteriores || !anteriores.length || i.semObjetivo) continue;
+    novos.push({ ...i, anterior: anteriores[0], trocas: anteriores.length });
+  }
+  return novos;
+}
+
 function dadosObjetivos(aba) {
   const npus = daAba(aba);
   const itens = npus.map(n => {
@@ -2946,7 +2960,7 @@ function dadosObjetivos(aba) {
   const conclusao = itens.filter(i => !i.acompanha && !i.semObjetivo).concat(cumpridos.filter(c => !c.acompanha));
   const acompanhamento = itens.filter(i => i.acompanha).concat(cumpridos.filter(c => c.acompanha));
   return {
-    itens, cumpridos, conclusao, acompanhamento,
+    itens, cumpridos, conclusao, acompanhamento, novos: novosObjetivos(itens),
     semObjetivo: itens.filter(i => i.semObjetivo),
     atingidos: conclusao.filter(i => i.atingido),
     emAberto: conclusao.filter(i => !i.atingido),
@@ -2960,7 +2974,9 @@ function relatorioObjetivos(aba) {
     avisar(`A aba de ${aba} está sem processos. Importe a base e consulte antes de gerar o relatório de objetivos.`, true);
     return;
   }
-  const { itens, cumpridos, conclusao, acompanhamento, semObjetivo, atingidos, emAberto, registrados } = d;
+  const { itens, cumpridos, conclusao, acompanhamento, semObjetivo, atingidos, emAberto, registrados, novos } = d;
+  const novosConcluidos = novos.filter(i => i.atingido);
+  const novosConclusao = novos.filter(i => !i.acompanha);
   const pct = conclusao.length ? Math.round(atingidos.length * 100 / conclusao.length) : 0;
   const agora = new Date();
   const mesAno = `${MESES[agora.getMonth()]} de ${agora.getFullYear()}`;
@@ -3147,7 +3163,12 @@ function relatorioObjetivos(aba) {
         : "")
     + (semObjetivo.length
         ? `${semObjetivo.length} processo${semObjetivo.length === 1 ? "" : "s"} está sem objetivo `
-          + `registrado na planilha e ficou fora das duas contas.` : "");
+          + `registrado na planilha e ficou fora das duas contas.` : "")
+    + (novos.length
+        ? ` ${novos.length} processo${novos.length === 1 ? " teve" : "s tiveram"} o objetivo cumprido e `
+          + `${novos.length === 1 ? "recebeu um novo" : "receberam um novo"}; desses novos objetivos, `
+          + `${novosConcluidos.length} ${novosConcluidos.length === 1 ? "já foi concluído" : "já foram concluídos"} (item 2.3).`
+        : "");
 
   const pe = `Relatório de objetivos · Carteira ${rotulo} · `
            + `${mesAno.charAt(0).toUpperCase()}${mesAno.slice(1)}`;
@@ -3279,6 +3300,7 @@ function relatorioObjetivos(aba) {
       <span>objetivos de conclusão atingidos (${pct}%)</span></div>
     <div class="kpi"><b>${emAberto.length}</b><span>objetivos de conclusão em aberto</span></div>
     <div class="kpi"><b>${acompanhamento.length}</b><span>itens de acompanhamento (sem conclusão exigida)</span></div>
+    <div class="kpi"><b>${novosConcluidos.length} de ${novos.length}</b><span>novos objetivos concluídos (definidos depois de um objetivo cumprido)</span></div>
   </div>
   <p>${esc(resumoTexto)}</p>
 
@@ -3311,6 +3333,24 @@ function relatorioObjetivos(aba) {
          registrar a providência. O registro não encerra o processo: apenas marca que a
          diligência foi cumprida.</p>`
     : "<p>Nenhum item de acompanhamento nesta carteira.</p>"}
+
+  <h3>2.3 Novos objetivos</h3>
+  ${novos.length
+    ? `<p>${esc(`São os objetivos definidos depois que o anterior foi cumprido. O cumprido continua `
+        + `contando como atingido nas contas acima, na data em que foi alcançado. Dos ${novos.length} `
+        + `novo${novos.length === 1 ? "" : "s"} objetivo${novos.length === 1 ? "" : "s"}, `
+        + `${novosConclusao.length} ${novosConclusao.length === 1 ? "é" : "são"} de conclusão e `
+        + `${novosConcluidos.length} ${novosConcluidos.length === 1 ? "já foi concluído" : "já foram concluídos"}.`)}</p>`
+      + tab(["Processo (NPU)", "Objetivo anterior (cumprido em)", "Novo objetivo", "Prioridade", "Situação"],
+            [...novos].sort((a, b) => (a.atingido ? 1 : 0) - (b.atingido ? 1 : 0)
+                || (ORDEM_PRI[a.prioridade] ?? 3) - (ORDEM_PRI[b.prioridade] ?? 3)
+                || a.mascara.localeCompare(b.mascara))
+              .map(i => [{ t: i.mascara, c: "npu" },
+                         `${i.anterior.objetivo} (${dataLongaLocal(i.anterior.atingido_em)})`
+                           + (i.trocas > 1 ? ` · mais ${i.trocas - 1} antes dele` : ""),
+                         i.objetivo, i.prioridade || "—", situacaoDe(i)]),
+            { larguras: ["22%", "29%", "23%", "11%", "15%"] })
+    : "<p>Nenhum objetivo desta carteira foi cumprido e trocado por um novo até agora.</p>"}
 
   <h2>3. Observações</h2>
   <h3>3.1 Objetivos atingidos</h3>
